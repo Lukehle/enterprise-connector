@@ -15,7 +15,8 @@ class SharedVaultTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        # macOS /var and Windows short temp names can alias the resolved root.
+        self.root = Path(temporary.name).resolve()
         self.shared = self.root / "Google Drive" / "Work Together"
         self.local = self.root / "Luke Local"
         self.state = self.root / "Luke State"
