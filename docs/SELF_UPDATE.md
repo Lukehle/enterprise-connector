@@ -6,6 +6,12 @@ reviewed reading snapshots to Drive. Both Macs receive ordinary Markdown through
 Drive for desktop. The schedule never starts Claude/Cursor, spends model tokens,
 changes a requirement, approves changed content, or publishes an outcome to Notion.
 
+Finance Git storage in Drive has its own explicit work transfer procedure.
+This refresh job does not fetch, pull, push, merge or synchronize Git internals.
+After deliberately updating the local checkout, refresh the packet before the
+next model stage; business/task changes can invalidate an existing route.
+See [FINANCE_GIT.md](FINANCE_GIT.md).
+
 ## The update loop
 
 ```mermaid

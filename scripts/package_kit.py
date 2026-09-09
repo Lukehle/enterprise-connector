@@ -18,7 +18,7 @@ ALLOWED_FILES = (
     ".gitignore", ".gitattributes", ".github/workflows/ci.yml", "README.md", "pyproject.toml", "work-context.py",
     "docs/TAXONOMY.md", "docs/OPERATING_GUIDE.md", "docs/WORK_MACHINE_CHECKLIST.md",
     "docs/REVIEW.md", "docs/NOTION_SETUP.md",
-    "docs/SHARED_VAULT.md", "docs/MODEL_ROUTING.md", "docs/SELF_UPDATE.md", "docs/REVIEW_V03.md",
+    "docs/SHARED_VAULT.md", "docs/MODEL_ROUTING.md", "docs/SELF_UPDATE.md", "docs/REVIEW_V03.md", "docs/FINANCE_GIT.md",
     "scripts/Install-WorkContext.ps1", "scripts/Sync-WorkContext.ps1",
     "scripts/Install-WorkContext.sh", "scripts/Sync-WorkContext.sh", "scripts/README.md",
     "scripts/package_kit.py", "scripts/verify_kit.py", "scripts/ci_monitor.cjs",

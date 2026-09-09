@@ -4,6 +4,12 @@ This candidate extends v0.2 for a shared Obsidian vault in company Google Drive,
 with Luke and Boss as collaborators. It is prepared for repository review before
 a new stable release. It does not connect this personal machine to a work tenant.
 
+Finance projects use Git stored in company Google Drive. GitHub hosts the public
+connector kit and its own review/CI only. Finance review uses local diffs, commit
+IDs and Notion records. [FINANCE_GIT.md](FINANCE_GIT.md) distinguishes the existing
+Drive repository from each Mac's active checkout and the shared notes vault;
+the connector does not perform Git transfers or claim Drive is a Git server.
+
 ## Design decisions
 
 | Concern | Implemented decision |

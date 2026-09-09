@@ -8,6 +8,13 @@ model routing. Python 3.11+; no third-party runtime packages.
 This branch is prepared for review. The [published stable download](https://github.com/Lukehle/enterprise-connector/releases/latest)
 remains v0.2 until the new shared workflow is reviewed and released.
 
+Finance projects sync their working folder and `.git` through company **Google
+Drive**. The connector uses a separate local execution checkout. This public
+GitHub repository distributes Enterprise Connector itself. Finance workflows
+use local project files, Git commit IDs and Notion review records; they require
+no GitHub account, pull request, GitHub MCP or GitHub Actions. See
+[finance Git in Drive](docs/FINANCE_GIT.md) for the connection and review workflow.
+
 ## Read in this order
 
 1. [Shared vault: exact folders, ownership, Notion connections and two-Mac setup](docs/SHARED_VAULT.md)
@@ -20,12 +27,13 @@ remains v0.2 until the new shared workflow is reviewed and released.
 [Single-user setup](docs/OPERATING_GUIDE.md) •
 [Work-machine checklist](docs/WORK_MACHINE_CHECKLIST.md)
 
-## Three separate locations
+## Work storage locations
 
 | Location | Contents | Writers |
 |---|---|---|
 | Company Google Drive shared Obsidian vault | Working notes, meetings, proposals, playbooks, links, and selected published Notion reading context | Luke and Boss in their owned note folders; one designated publisher for generated files |
-| Each Mac's local execution workspace | Git repository, technical overview, task contracts, Cursor rule and bounded Claude/Cursor packets | That Mac's reviewed development workflow |
+| Company Google Drive finance Git location, separate from the Obsidian vault | Existing finance project Git storage; repository layout and transfer procedure remain company-owned | Existing finance Git workflow |
+| Each Mac's local execution workspace | Local checkout of the finance project, technical overview, task contracts, Cursor rule and bounded Claude/Cursor packets | That Mac's reviewed development workflow |
 | Each Mac's private Application Support state | Source cache, local config references, review receipts, routing/evidence ledger, outbox and quarantine | Local connector commands |
 
 Do not move the existing v0.2 execution vault wholesale into Google Drive.

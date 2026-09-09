@@ -6,6 +6,12 @@ Mac. Enterprise Connector refreshes selected Notion context without asking an
 AI model to browse the vault. The shared mirror is for people to read; Claude
 and Cursor receive a separately validated local task packet.
 
+Finance project Git is stored in company Google Drive. The public GitHub project
+is the connector's distribution repository. Keep the finance Git location and
+the shared Obsidian vault as separate folders, and use the local checkout in
+each Mac's execution workspace. [FINANCE_GIT.md](FINANCE_GIT.md) explains how to
+identify the existing arrangement and review work using commit IDs and Notion.
+
 ## Storage and ownership
 
 Prefer a company **Shared Drive** named by your organization, with a folder such
@@ -47,12 +53,15 @@ copy plugin secrets, or enable AI plugins. See
 [Obsidian configuration folders](https://help.obsidian.md/configuration-folder).
 
 Keep the following outside Google Drive, iCloud Desktop/Documents, and other
-automatic cloud backup paths: local code checkout, `.git`, Cursor configuration,
+automatic cloud backup paths in the connector's execution layout: each Mac's
+active local checkout and its `.git`, Cursor configuration,
 Claude session state, task contracts, generated agent packets, connector
 configuration, API credentials, review receipts, outbox, logs, and quarantine.
 A suggested local workspace is `~/Work/ExecutionWorkspace`. Runtime
 state defaults to `~/Library/Application Support/WorkContext/…`. These are
 examples in the setup guide only; the shared scaffold contains no machine paths.
+The existing finance Git storage in Drive is separate from this local checkout;
+this guidance does not move, delete or reconfigure that company repository.
 The initializer rejects overlap with the selected shared vault. It cannot
 discover every folder your employer's sync software might also synchronize.
 
@@ -194,7 +203,7 @@ shared Project.md rather than duplicating editable task tables in Obsidian.
 | Approved BR/AC/CON context | Explicit Notion page allowlist → local capture → reviewed shared mirror | Connector reads only configured complete pages |
 | Business decision | Meeting/proposal → Notion Decisions | Shared note records resulting BD ID and link |
 | Action / delivery status | Notion Work Items ↔ reviewed update | Native task state remains human-owned |
-| Technical implementation | Local Git → reviewed handoff | Share a small factual summary and Git link |
+| Technical implementation | Local finance Git checkout → reviewed handoff | Record the Drive repository link, project ID, branch and full commit IDs with actual test results |
 | Automation update | Local draft → exact reviewed destination/hash → Notion Automation Updates | Explicit publication; no background write-back |
 
 There is no automatic bidirectional Markdown merge. Editing the shared mirror

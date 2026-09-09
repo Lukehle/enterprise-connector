@@ -94,6 +94,13 @@ Refresh is deliberately separate from routing: no model turn is spent checking N
 
 The shared vault serves humans. Notion owns approved business meaning. The bridge fetches explicit allowed pages without model calls, compiles only the selected requirement IDs, and emits one local task packet. Claude and Cursor read that packet plus relevant local code. They do not need to discover the entire shared vault, search Notion repeatedly, or carry meeting archives through every conversation. The private routing ledger supplies small stage-specific handoffs instead of resuming an ever-growing cross-model transcript.
 
+Finance code comes from the local checkout of the company's Google Drive Git
+project. Plan and review using the declared task, local diff and actual test
+results. Record repository/project ID plus full base and candidate commit IDs
+in the report; no GitHub PR is needed. A commit ID and the connector's code hash
+are separate evidence fields. Refresh and routing do not fetch, push, merge or
+run GitHub workflows. See [FINANCE_GIT.md](FINANCE_GIT.md).
+
 For Claude, the prepared per-session arguments use `--strict-mcp-config` with a generated empty `mcpServers` object and `--disable-slash-commands`; they do not modify global settings. Managed MCP configuration remains authoritative. These flags reduce optional tools/skills for this session but do not promise that managed servers, plugins, hooks, memories, or required company instructions disappear. Keep required company policy enabled; review optional plugin settings in the approved project profile. Avoid bare/safe mode as a blanket cost workaround because it can also skip useful project instructions and hooks. [CLI controls](https://code.claude.com/docs/en/cli-reference), [managed MCP behavior](https://code.claude.com/docs/en/mcp).
 
 For Cursor, review Settings → Tools & MCP and the configured project/global sources before the task. Enable only tools needed by this project; use the editor's per-tool/server controls where available. A blank project `.cursor/mcp.json` does **not** prove global servers are disabled. `agent mcp list` shows inherited configuration. The kit does not silently change global settings or call `--approve-mcps`. Confirm the effective tool list in the work client. [Cursor MCP](https://cursor.com/docs/context/mcp), [CLI MCP](https://cursor.com/docs/cli/mcp).
