@@ -18,6 +18,7 @@ ALLOWED_FILES = (
     ".gitignore", ".gitattributes", ".github/workflows/ci.yml", "README.md", "pyproject.toml", "work-context.py",
     "docs/TAXONOMY.md", "docs/OPERATING_GUIDE.md", "docs/WORK_MACHINE_CHECKLIST.md",
     "docs/REVIEW.md", "docs/NOTION_SETUP.md",
+    "docs/SHARED_VAULT.md", "docs/MODEL_ROUTING.md", "docs/SELF_UPDATE.md", "docs/REVIEW_V03.md",
     "scripts/Install-WorkContext.ps1", "scripts/Sync-WorkContext.ps1",
     "scripts/Install-WorkContext.sh", "scripts/Sync-WorkContext.sh", "scripts/README.md",
     "scripts/package_kit.py", "scripts/verify_kit.py", "scripts/ci_monitor.cjs",
@@ -25,9 +26,11 @@ ALLOWED_FILES = (
     "src/work_context/cli.py", "src/work_context/common.py", "src/work_context/core.py",
     "src/work_context/vault.py", "src/work_context/notion.py", "src/work_context/notion_schema.json",
     "src/work_context/notion_setup.py", "src/work_context/readiness.py",
+    "src/work_context/shared.py", "src/work_context/routing.py", "src/work_context/refresh.py",
     "tests/test_cli.py", "tests/test_core.py", "tests/test_vault.py", "tests/test_notion.py",
     "tests/test_core_hardening.py", "tests/test_cli_setup.py", "tests/test_notion_setup.py",
     "tests/test_readiness.py",
+    "tests/test_shared.py", "tests/test_routing.py", "tests/test_refresh.py", "tests/test_shared_cli.py",
 )
 
 

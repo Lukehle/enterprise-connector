@@ -1,5 +1,10 @@
 # Work Mac readiness checklist
 
+For the v0.3 shared workflow, also follow [SHARED_VAULT.md](SHARED_VAULT.md),
+[SELF_UPDATE.md](SELF_UPDATE.md) and [MODEL_ROUTING.md](MODEL_ROUTING.md).
+The download commands below refer to the published v0.2 release; use a complete
+reviewed v0.3 kit when evaluating the new branch.
+
 Use the kit in a company-approved folder with an existing Python **3.11 or newer**.
 The Python bridge has no third-party runtime packages. An enterprise AI plan does
 not supply Python, Notion integration access, or approval for a particular data flow.

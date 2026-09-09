@@ -1,9 +1,13 @@
 # Exact Work Context taxonomy
 
-Use one work-only Obsidian vault, one Notion parent page named **Work Context**,
-and the five collections below. Obsidian and Cursor open the same physical
-files. The bridge assembles selected approved context; it does not mirror every
-Notion database into Markdown.
+For the two-person Google Drive vault, use the exact shared folders and ownership
+in [SHARED_VAULT.md](SHARED_VAULT.md). That shared reading vault is separate from
+each Mac's local execution workspace. The five Notion collections below apply
+to both layouts. The bridge selects context; it does not mirror every database.
+
+The folder tree below describes the existing single-user vault or the LOCAL
+execution workspace created alongside a shared vault. Only in the single-user
+layout do Obsidian and Cursor open the same physical project files.
 
 This kit is portable. On the enterprise work machine, use the company's approved
 local path, for example `~/Work/WorkVault` on a Mac. Keep runtime state in the
@@ -11,7 +15,7 @@ application-data path, by default `~/Library/Application Support/WorkContext` on
 or `%LOCALAPPDATA%\WorkContext` on Windows. Paths on the
 computer that prepared the kit are not work-machine configuration.
 
-## Vault folders and exact ownership
+## Local execution folders and exact ownership
 
 ```text
 WorkVault/                                      Obsidian opens this folder

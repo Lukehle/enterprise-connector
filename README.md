@@ -1,117 +1,122 @@
 # Enterprise Connector
 
-A portable bridge between your work Notion workspace, an Obsidian vault, and
-project files used in Cursor. **Mac-first setup**, also tested on Windows and
-Linux. Python 3.11+; no third-party runtime packages or LLM API account required.
+Local, model-free context bridges for Notion, Obsidian, Claude Code and Cursor.
+The v0.3 review candidate adds a **shared Google Drive vault for Luke and Boss**,
+separate per-Mac execution workspaces, scheduled context refresh and bounded
+model routing. Python 3.11+; no third-party runtime packages.
 
-[Download the portable kit](https://github.com/Lukehle/enterprise-connector/releases/latest)
-• [Mac setup guide](docs/OPERATING_GUIDE.md)
-• [Exact taxonomy](docs/TAXONOMY.md)
-• [Notion setup](docs/NOTION_SETUP.md)
-• [Readiness checklist](docs/WORK_MACHINE_CHECKLIST.md)
-• [Review and boundaries](docs/REVIEW.md)
+This branch is prepared for review. The [published stable download](https://github.com/Lukehle/enterprise-connector/releases/latest)
+remains v0.2 until the new shared workflow is reviewed and released.
 
-## What is built
+## Read in this order
 
-| Bridge | Behavior |
-|---|---|
-| Setup → Obsidian/Cursor | Creates a shared vault/project structure, task and note templates, and a small Cursor rule; preserves existing files. |
-| Setup → Notion | Plans and creates five collections, their properties and relations, and 12 named views; exports five Markdown templates. |
-| Notion → context | Captures explicit page IDs, checks complete content and consistent revisions, and selects rules, acceptance criteria and declared dependencies. |
-| Repository → context | Fingerprints configured files plus task scope, and includes the reviewed technical overview. |
-| Context → Claude/Cursor | Produces compact versioned packets with source references, bounded size, freshness checks and independently stored manifest receipts. Claude handoff is manual. |
-| Local outcome → Notion | Drafts and explicitly publishes summaries to the registered Automation Updates collection, with classification, optional relations, and durable duplicate checks. |
-| Diagnostics and recovery | Offline self-test, read-only connection check, explicit damaged-packet repair, and reconciliation of uncertain Notion creates. |
+1. [Shared vault: exact folders, ownership, Notion connections and two-Mac setup](docs/SHARED_VAULT.md)
+2. [Self-updating context: five-minute refresh and Mac schedule](docs/SELF_UPDATE.md)
+3. [Model routing: Opus / Haiku / Sonnet and Cursor Composer](docs/MODEL_ROUTING.md)
+4. [Notion properties, IDs, views and templates](docs/TAXONOMY.md)
+5. [Review scope and remaining work-machine checks](docs/REVIEW_V03.md)
 
-The goal is to reduce repeated context assembly and wasted model turns. The
-bridge makes **zero model calls**. It does not increase Claude/Cursor usage limits
-or guarantee lower bills; measure extra usage and accepted work during a pilot.
+[Notion API setup](docs/NOTION_SETUP.md) •
+[Single-user setup](docs/OPERATING_GUIDE.md) •
+[Work-machine checklist](docs/WORK_MACHINE_CHECKLIST.md)
 
-## Exact organization
+## Three separate locations
+
+| Location | Contents | Writers |
+|---|---|---|
+| Company Google Drive shared Obsidian vault | Working notes, meetings, proposals, playbooks, links, and selected published Notion reading context | Luke and Boss in their owned note folders; one designated publisher for generated files |
+| Each Mac's local execution workspace | Git repository, technical overview, task contracts, Cursor rule and bounded Claude/Cursor packets | That Mac's reviewed development workflow |
+| Each Mac's private Application Support state | Source cache, local config references, review receipts, routing/evidence ledger, outbox and quarantine | Local connector commands |
+
+Do not move the existing v0.2 execution vault wholesale into Google Drive.
+`init-shared` creates the shared collaboration structure while keeping machine
+paths and executable project state local. Google Drive synchronization is not a
+distributed lock; designate one publishing Mac and coordinate handovers.
+
+## Shared folder taxonomy
 
 ```text
-WorkVault/
-  00 Home/
-  01 Inbox/
+WorkVault/                         # shared in company Google Drive
+  00 Home/                        # navigation, agreement, people, ID register
+  01 Inbox/luke/ and boss/         # separate capture ownership
+  02 Meetings/                    # dated meeting records
   10 Projects/<project-slug>/
-    repo/                 # implementation, reviewed docs, task contracts
-    notes/                # human working notes
-    context/              # configuration, packets, status
-    .cursor/rules/
+    00 Overview/
+    10 Notes/luke/ and boss/
+    20 Proposals/
+    30 Handoffs/
+    40 Published/                 # generated, reviewed Notion reading snapshots
   20 Playbooks/
+  30 Reference/
   90 Archive/
   _templates/
+  99 System/                      # logical shared IDs and publisher epoch only
 ```
 
-| Notion collection under Work Context | Stable IDs | Owns |
-|---|---|---|
-| Projects | PRJ-001 | Purpose, owner, lifecycle, repository and vault links |
-| Requirements | BR-001 / AC-001 / CON-001 | Business rules, acceptance criteria and constraints |
-| Work Items | TASK-001 | Intent, priority, human status and requirement relations |
-| Decisions | BD-001 | Business decisions and references to technical ADRs |
-| Automation Updates | UPD-… | Explicitly published outcome summaries |
+Notion owns Projects, Requirements, Work Items, Decisions and Automation Updates.
+Git owns code, tests and technical ADRs. Obsidian owns collaboration notes.
+Promote a note through human review into its canonical Notion record, then keep a
+link in the vault. Avoid separately editable copies of the same approved rule.
 
-Technical decisions remain `ADR-001` files in Git. Each system has an explicit
-owner; the connector does not merge competing edits to the same requirement.
+## Start on the work Mac
 
-## Start on your work Mac
-
-Extract the complete ZIP and open Terminal in the extracted `enterprise-connector`
-folder. Use your work-approved Python 3.11 or newer:
+Run from this branch's complete kit folder with your approved Python runtime:
 
 ```bash
 python3 work-context.py self-test
-bash scripts/Install-WorkContext.sh --vault "$HOME/Work/WorkVault" --project forecast-automation
+shared_vault='<absolute Google Drive vault path copied from Finder>'
+python3 work-context.py init-shared --shared-vault "$shared_vault" --local-workspace "$HOME/Work/ExecutionWorkspace" --project forecast-automation --member-id luke --publisher-id luke
 ```
 
-This creates an **unconfigured** vault without contacting Notion. Runtime state
-defaults to `~/Library/Application Support/WorkContext/<project>-<vault-hash>`.
-Use the printed `config_path` for subsequent commands. Follow the
-[operating guide](docs/OPERATING_GUIDE.md) to create and connect the Notion side.
+Boss runs the same initialization on their own Mac with `--member-id boss` after
+the shared registry has synchronized. Each person opens the shared root in
+Obsidian. Cursor opens the LOCAL execution project's wrapper. Follow the shared
+vault guide for Drive offline availability, per-device Obsidian configuration,
+sharing, conflict handling and publisher handover.
 
-To inspect a synthetic example first:
+The designated publisher uses `refresh` for a complete Notion capture and reviewed
+shared projection. Changed business content waits for source review. A reviewed
+`refresh-schedule` exports a five-minute LaunchAgent for installation on the work
+Mac; it never schedules model calls or publishes business updates automatically.
 
-```bash
-bash scripts/Install-WorkContext.sh --vault "$HOME/Work/WorkVault-Demo" --project forecast-automation --demo
-wc_config="$HOME/Work/WorkVault-Demo/10 Projects/forecast-automation/context/config.json"
-python3 work-context.py --config "$wc_config" sync
-python3 work-context.py --config "$wc_config" packet --for cursor
-```
+## Model routing
 
-Open the vault root in Obsidian. Open `10 Projects/forecast-automation` in Cursor.
-They use the same local files; an Obsidian plugin is not required. The shell
-scripts use the Bash shipped with macOS. [Windows wrappers](scripts/README.md)
-are included. No installer downloads software or changes system policy.
+| Workflow | Planning and review | Building | Recovery |
+|---|---|---|---|
+| Claude Code CLI | Opus 4.8 | Haiku | Sonnet 5 after two failed candidates, one recovery attempt |
+| Cursor | Opus 4.8 | Cursor Composer | Stop for human diagnosis after two failed candidates |
 
-## Verification and boundaries
+`route-template`, `route-init`, `route-next` and `route-record` prepare commands,
+small handoffs and a private evidence ledger. The next stage is selected from
+recorded outcomes. These commands do not execute models or tests. Exact model
+availability must be checked on the work account; moving model aliases are
+refused. Opus review and human business acceptance remain separate.
+
+The cost reduction comes from reusing a small local packet and short stage
+handoffs instead of repeated remote discovery and growing transcripts. Claude
+commands use a minimal optional MCP/tool profile; Cursor's effective MCP list is
+checked locally. Company-managed tools and policies remain authoritative. This
+does not expand usage limits or guarantee savings; measure paid overage and total
+cost per accepted task, including failed attempts and human review.
+
+## What is built and tested
+
+- Five Notion schemas, relations, twelve named views and five Markdown templates.
+- Explicit source scope, complete/revision-consistent capture and dependency mapping.
+- Source-review receipts, bounded packets, fingerprints, stale-state checks and repair.
+- Shared-vault scaffold, publisher epochs, snapshot integrity, expiry and invalidation.
+- Mac refresh schedule export with optional in-memory Keychain credential lookup.
+- Bounded model routing, evidence binding and reviewed update publication.
+- Deterministic source-only ZIP, manifest verifier and offline self-test.
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 scripts/package_kit.py
-python3 scripts/verify_kit.py dist/enterprise-connector-v0.2.0.zip --smoke
+python3 scripts/verify_kit.py dist/enterprise-connector-v0.3.0.zip --smoke
 ```
 
-CI runs the tests, offline self-test, archive verification, and extracted-kit
-smoke test on macOS, Windows and Ubuntu with Python 3.11 and 3.14. HTTP tests use
-simulated Notion responses; **live enterprise credentials and workspace access
-must be verified on the work Mac**.
-
-- Native Notion database templates are created manually from the exported
-  Markdown. Initial business records and ownership remain human-maintained.
-- A fresh packet and a local source-review acknowledgment are separate facts.
-  Neither is protected enterprise authorization or evidence that code passed tests.
-- This release provides the context bridges. It does not implement an execution
-  sandbox, autonomous repair worker, deployment service or business acceptance.
-- `status` checks the last capture, age and local files. Remote edits are detected
-  by the next explicit `sync`. Default freshness is 15 minutes.
-- Access loss and scope restrictions invalidate the pointer and quarantine old
-  packets. A failed quarantine blocks capture until file access is resolved.
-  Content already pasted into another application cannot be retracted.
-- Local receipts protect against packet/manifest edits within the workspace;
-  they are not cryptographic attestation against the same user editing local state.
-- Tokens come only from `NOTION_READ_TOKEN` / `NOTION_WRITE_TOKEN` in the local
-  process environment. Source caches, drafts and journals stay outside the vault.
-  The credential-pattern guardrail is not a general secret scanner or DLP system.
-
-Preserve write journals. An uncertain Notion response is reconciled against an
-explicit candidate ID; deleting the journal and retrying can create duplicates.
+CI runs on macOS, Windows and Ubuntu with Python 3.11 and 3.14. Tests use synthetic
+content and simulated HTTP responses. Actual enterprise Notion access, two-device
+Drive propagation, installed Claude/Cursor behavior and LaunchAgent/Keychain
+permissions must be checked on the work machines. No work credentials or live
+company content belong in this public repository.

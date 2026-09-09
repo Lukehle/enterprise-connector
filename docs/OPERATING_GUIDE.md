@@ -1,5 +1,10 @@
 # Work Mac setup and daily operation
 
+For Luke and Boss's shared Google Drive vault, start with
+[SHARED_VAULT.md](SHARED_VAULT.md), then [SELF_UPDATE.md](SELF_UPDATE.md) and
+[MODEL_ROUTING.md](MODEL_ROUTING.md). This guide retains the single-user layout
+and common Notion operations. Shared setup keeps the execution workspace local.
+
 Enterprise Connector runs locally with Python 3.11 or newer and no third-party
 runtime packages. Obsidian and Cursor share the same files. Notion is the source
 of selected business context. Claude receives a deliberate Markdown handoff.
