@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "api_version": "2026-03-11",
+  "root_page_name": "Work Context",
+  "id_policy": "External ID is human-assigned and immutable. Notion page UUIDs are transport identifiers. IDs are unique within a database; never reuse retired IDs.",
+  "status_policy": "Status uses select properties so exact options are portable. Business owners control requirement approval and business acceptance. The publisher only inserts Automation Updates.",
+  "views_policy": "Bootstrap creates five databases and their default Table views. The listed named views and page templates are exact manual setup specifications, not automatically installed objects.",
+  "databases": [
+    {
+      "key": "projects",
+      "name": "Projects",
+      "id_prefix": "PRJ",
+      "canonical_owner": "Business project owner",
+      "properties": {
+        "Name": {"title": {}},
+        "External ID": {"rich_text": {}},
+        "Status": {"select": {"options": [{"name": "Proposed"}, {"name": "Active"}, {"name": "On hold"}, {"name": "Complete"}, {"name": "Archived"}]}},
+        "Classification": {"select": {"options": [{"name": "Public"}, {"name": "Internal"}, {"name": "Confidential"}, {"name": "Restricted"}]}},
+        "Owner": {"people": {}},
+        "Repository URL": {"url": {}},
+        "Vault Slug": {"rich_text": {}}
+      },
+      "relations": {},
+      "views": [
+        {"name": "Active Projects", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Active"}}},
+        {"name": "All Projects", "layout": "table", "filter": null}
+      ],
+      "template_sections": ["Purpose", "Outcome and success measure", "Scope", "Out of scope", "Systems and approved data", "Stakeholders", "Linked requirements", "Links"]
+    },
+    {
+      "key": "requirements",
+      "name": "Requirements",
+      "id_prefix": {"Rule": "BR", "Acceptance": "AC", "Constraint": "CON"},
+      "canonical_owner": "Business requirement owner",
+      "properties": {
+        "Name": {"title": {}},
+        "External ID": {"rich_text": {}},
+        "Type": {"select": {"options": [{"name": "Rule"}, {"name": "Acceptance"}, {"name": "Constraint"}]}},
+        "Status": {"select": {"options": [{"name": "Draft"}, {"name": "In review"}, {"name": "Approved"}, {"name": "Superseded"}]}},
+        "Classification": {"select": {"options": [{"name": "Public"}, {"name": "Internal"}, {"name": "Confidential"}, {"name": "Restricted"}]}},
+        "Owner": {"people": {}},
+        "Approved By": {"people": {}},
+        "Approved On": {"date": {}},
+        "Depends On IDs": {"rich_text": {}}
+      },
+      "relations": {"Project": "projects"},
+      "views": [
+        {"name": "Approved Requirements", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Approved"}}},
+        {"name": "Needs Approval", "layout": "table", "filter": {"property": "Status", "select": {"equals": "In review"}}},
+        {"name": "Rules", "layout": "table", "filter": {"property": "Type", "select": {"equals": "Rule"}}},
+        {"name": "Acceptance Criteria", "layout": "table", "filter": {"property": "Type", "select": {"equals": "Acceptance"}}}
+      ],
+      "template_sections": ["Statement", "Rationale", "Inputs and definitions", "Examples", "Edge cases", "Acceptance check", "Depends on", "Change history"],
+      "body_policy": "The reader exports External ID, Type, Status and Classification with the page body. Local task approval binds the fetched content digest; a Notion label alone is not an execution approval. Declare dependency IDs explicitly in the repository task contract."
+    },
+    {
+      "key": "work_items",
+      "name": "Work Items",
+      "id_prefix": "TASK",
+      "canonical_owner": "Human task owner; verification receipts remain canonical in the project repository",
+      "properties": {
+        "Name": {"title": {}},
+        "External ID": {"rich_text": {}},
+        "Status": {"select": {"options": [{"name": "Backlog"}, {"name": "Ready"}, {"name": "In progress"}, {"name": "Blocked"}, {"name": "Review"}, {"name": "Done"}, {"name": "Cancelled"}]}},
+        "Classification": {"select": {"options": [{"name": "Public"}, {"name": "Internal"}, {"name": "Confidential"}, {"name": "Restricted"}]}},
+        "Priority": {"select": {"options": [{"name": "P0"}, {"name": "P1"}, {"name": "P2"}, {"name": "P3"}]}},
+        "Owner": {"people": {}},
+        "Due": {"date": {}},
+        "Task Path": {"rich_text": {}},
+        "Verification": {"select": {"options": [{"name": "Not run"}, {"name": "Passed"}, {"name": "Failed"}]}},
+        "Business Acceptance": {"select": {"options": [{"name": "Pending"}, {"name": "Accepted"}, {"name": "Rejected"}]}}
+      },
+      "relations": {"Project": "projects", "Requirements": "requirements"},
+      "views": [
+        {"name": "Ready Queue", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Ready"}}},
+        {"name": "Blocked", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Blocked"}}},
+        {"name": "Needs Review", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Review"}}}
+      ],
+      "template_sections": ["Outcome", "Required requirement IDs", "Scope", "Acceptance criteria", "Repository task path", "Open questions", "Latest update"]
+    },
+    {
+      "key": "decisions",
+      "name": "Decisions",
+      "id_prefix": "BD",
+      "canonical_owner": "Business decision owner; technical decisions belong in repository ADR files",
+      "properties": {
+        "Name": {"title": {}},
+        "External ID": {"rich_text": {}},
+        "Status": {"select": {"options": [{"name": "Proposed"}, {"name": "Accepted"}, {"name": "Superseded"}, {"name": "Rejected"}]}},
+        "Classification": {"select": {"options": [{"name": "Public"}, {"name": "Internal"}, {"name": "Confidential"}, {"name": "Restricted"}]}},
+        "Owner": {"people": {}},
+        "Decided On": {"date": {}},
+        "ADR IDs": {"rich_text": {}}
+      },
+      "relations": {"Project": "projects", "Requirements": "requirements"},
+      "views": [
+        {"name": "Accepted Decisions", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Accepted"}}},
+        {"name": "Proposals", "layout": "table", "filter": {"property": "Status", "select": {"equals": "Proposed"}}}
+      ],
+      "template_sections": ["Question", "Decision", "Alternatives considered", "Business rationale", "Consequences", "Affected requirement IDs", "Related ADR IDs", "Supersedes"]
+    },
+    {
+      "key": "automation_updates",
+      "name": "Automation Updates",
+      "id_prefix": "UPD",
+      "canonical_owner": "Approved publisher; immutable inserted summaries",
+      "properties": {
+        "Name": {"title": {}},
+        "External ID": {"rich_text": {}},
+        "Status": {"select": {"options": [{"name": "Published"}]}},
+        "Classification": {"select": {"options": [{"name": "Public"}, {"name": "Internal"}, {"name": "Confidential"}, {"name": "Restricted"}]}},
+        "Payload Hash": {"rich_text": {}},
+        "Published At": {"created_time": {}}
+      },
+      "relations": {"Project": "projects", "Work Item": "work_items"},
+      "views": [
+        {"name": "Recent Updates", "layout": "table", "filter": null, "sorts": [{"property": "Published At", "direction": "descending"}]}
+      ],
+      "template_sections": ["Outcome", "Changes", "Verification evidence", "Limitations", "Next action", "Task and bundle IDs"],
+      "publisher_policy": "The initial publisher populates Name, External ID, Payload Hash, Status and the reviewed Markdown body. Set Classification and relations manually; these properties are not inferred. Publish a new external ID for a correction. Never update an existing published page automatically."
+    }
+  ],
+  "official_references": [
+    "https://developers.notion.com/reference/create-database",
+    "https://developers.notion.com/reference/property-object",
+    "https://developers.notion.com/guides/data-apis/working-with-markdown-content",
+    "https://developers.notion.com/reference/query-a-data-source",
+    "https://developers.notion.com/reference/status-codes",
+    "https://developers.notion.com/guides/get-started/upgrade-guide-2026-03-11",
+    "https://github.com/makenotion/notion-sdk-js/blob/main/src/api-endpoints/common.ts"
+  ]
+}
