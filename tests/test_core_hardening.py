@@ -96,7 +96,7 @@ class CoreHardeningTests(unittest.TestCase):
     def test_explicit_state_tilde_is_expanded(self):
         with patch.dict(os.environ, {"HOME": str(self.root), "USERPROFILE": str(self.root)}):
             result = core.initialize(self.root / "Other Vault", "tilde", Path("~/Tilde State"), True)
-        self.assertEqual(Path(result["state_dir"]), self.root / "Tilde State")
+        self.assertEqual(Path(result["state_dir"]), (self.root / "Tilde State").resolve())
 
     def test_sync_cannot_skip_policy_quarantine(self):
         first = core.sync(self.c)
