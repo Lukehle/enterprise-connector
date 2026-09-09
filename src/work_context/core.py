@@ -299,7 +299,7 @@ def render_status(c, health):
         atomic_text(context_path(c, "START_HERE.md"), f"# Context unavailable\n\nState: {state}. Run an explicit sync and resolve its diagnostic before using a task packet.\n")
 
 
-def record_failure(c, exc):
+def _record_failure(c, exc):
     unavailable_codes = {"UNAVAILABLE", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "ACCESS_REVOKED", "SOURCE_UNAVAILABLE", "AUTH_REQUIRED", "NOTION_ACCESS", "INVALID_SOURCE"}
     state = "UNAVAILABLE" if exc.code in unavailable_codes else "INCOMPLETE" if exc.code in {"INCOMPLETE", "MISSING_REQUIREMENT", "DUPLICATE_ID", "INCOMPLETE_SOURCE"} else "FAILED" if exc.code in {"SECRET_DETECTED", "CLASSIFICATION", "INTEGRITY"} else "STALE"
     health = {"state": state, "checked_at": utc_now(), "error_code": exc.code, "message": exc.message}
@@ -308,7 +308,7 @@ def record_failure(c, exc):
         pending = isinstance(previous, dict) and previous.get("quarantine_pending", False)
     except BridgeError:
         pending = False
-    quarantine_needed = pending or state == "UNAVAILABLE" or exc.code in {"CLASSIFICATION", "SCOPE_CHANGED", "SECRET_DETECTED", "QUARANTINE_PENDING"}
+    quarantine_needed = pending or state == "UNAVAILABLE" or exc.code in {"CLASSIFICATION", "SCOPE_CHANGED", "SECRET_DETECTED", "QUARANTINE_PENDING", "REVIEW_REVOKED"}
     if quarantine_needed:
         # Durable intent comes first: rendering, revocation and the move can each fail.
         health["quarantine_pending"] = True
@@ -333,6 +333,23 @@ def record_failure(c, exc):
                 return
         health.pop("quarantine_pending", None)
         atomic_json(state_path(c, "health.json"), health)
+
+
+def record_failure(c, exc):
+    try:
+        _record_failure(c, exc)
+    finally:
+        binding = c.get("shared")
+        if binding and binding.get("member_id") == binding.get("publisher_id"):
+            from .shared import invalidate_shared
+            try:
+                invalidate_shared(c, exc.code)
+            except (BridgeError, OSError) as failure:
+                atomic_json(state_path(c, "shared-invalidation-error.json"), {
+                    "state": "PENDING", "source_error": exc.code,
+                    "shared_error": getattr(failure, "code", "SHARED_IO"), "at": utc_now(),
+                })
+                raise BridgeError("SHARED_INVALIDATION_PENDING", "Local context is invalid, but the shared reading copy could not be withdrawn. Resolve Drive/file access and refresh.") from failure
 
 
 def compiler_fingerprint() -> str:
@@ -427,6 +444,10 @@ def sync(c: dict, task_id: str = "TASK-001", client=None, repair: bool = False) 
         atomic_json(state_path(c, "health.json"), health)
         render_status(c, health)
         atomic_text(context_path(c, "START_HERE.md"), f"# Active task packet\n\nTask: {task_id}\nBundle: {bundle_id}\nReview: {review_status}\n\nRun `status` before use; freshness expires after {c['freshness_seconds']} seconds. This file is a pointer, not execution authority.\n\n- [Current health](CURRENT_STATE.md)\n- [Cursor task](releases/{bundle_id}/CURSOR_TASK.md)\n- [Claude packet](releases/{bundle_id}/CLAUDE_PACKET.md)\n- [Manifest](releases/{bundle_id}/manifest.json)\n")
+        binding = c.get("shared")
+        if binding and binding.get("member_id") == binding.get("publisher_id") and review_status != "REVIEW_ACKNOWLEDGED_LOCAL":
+            from .shared import invalidate_shared
+            invalidate_shared(c, "REVIEW_REQUIRED")
         return {**health, "packet_path": str(release / "AI_CONTEXT.md"), "max_estimated_tokens": max(estimates.values()), "model_calls": 0}
     except BridgeError as exc:
         record_failure(c, exc)
@@ -479,7 +500,8 @@ def _status(c) -> dict:
             review_path = state_path(c, "source_review.json")
             review = read_json(review_path) if review_path.exists() else {}
             if review.get("revoked") or review.get("source_hash") != health.get("source_hash"):
-                return {**health, "state": "STALE", "review_status": "REVIEW_REQUIRED", "message": "The source review is absent or revoked. Refresh and review the source."}
+                record_failure(c, BridgeError("REVIEW_REVOKED", "The source review is absent or revoked. Refresh and review the source."))
+                return read_json(file)
         task = load_task(c, health["task_id"])
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(health["checked_at"])).total_seconds()
         if age < -60 or age > c["freshness_seconds"]:

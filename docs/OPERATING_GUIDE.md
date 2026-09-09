@@ -1,8 +1,17 @@
 # Work Mac setup and daily operation
 
+For Luke and Boss's shared Google Drive vault, start with
+[SHARED_VAULT.md](SHARED_VAULT.md), then [SELF_UPDATE.md](SELF_UPDATE.md) and
+[MODEL_ROUTING.md](MODEL_ROUTING.md). This guide retains the single-user layout
+and common Notion operations. Shared setup keeps the execution workspace local.
+
 Enterprise Connector runs locally with Python 3.11 or newer and no third-party
 runtime packages. Obsidian and Cursor share the same files. Notion is the source
 of selected business context. Claude receives a deliberate Markdown handoff.
+
+The work projects use Git in company Google Drive. GitHub is only where the
+generic connector kit is distributed; finance projects need no GitHub service.
+Follow [FINANCE_GIT.md](FINANCE_GIT.md) when attaching their local checkout.
 
 Use the [exact taxonomy](TAXONOMY.md), [Notion setup guide](NOTION_SETUP.md), and
 [work-machine checklist](WORK_MACHINE_CHECKLIST.md) alongside these steps.
@@ -81,6 +90,13 @@ Put the real project implementation in the wrapper's `repo` folder through your
 normal Git workflow. The bridge does not clone or initialize a repository. Keep
 human working notes in the sibling `notes` folder. Fill `repo/docs/AI_OVERVIEW.md`
 and `repo/tasks/TASK-001/task.json` deliberately.
+
+For an existing project, clone into that local `repo` location **before** running
+the initializer, which preserves existing files and creates missing scaffolding.
+An already initialized `repo` contains starter files and is not an empty clone
+destination. Preserve that wrapper and use a new empty local workspace, or have
+the repository owner reconcile the starter files deliberately. Never delete or
+overwrite work just to make `git clone` accept its destination.
 
 The configuration initially allows Public and Internal classifications, expires
 freshness after 900 seconds, and limits each packet to 24,000 UTF-8 bytes and

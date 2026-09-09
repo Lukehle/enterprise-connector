@@ -1,9 +1,15 @@
 # Exact Work Context taxonomy
 
-Use one work-only Obsidian vault, one Notion parent page named **Work Context**,
-and the five collections below. Obsidian and Cursor open the same physical
-files. The bridge assembles selected approved context; it does not mirror every
-Notion database into Markdown.
+For the two-person Google Drive vault, use the exact shared folders and ownership
+in [SHARED_VAULT.md](SHARED_VAULT.md). That shared reading vault is separate from
+each Mac's local execution workspace. The five Notion collections below apply
+to both layouts. The bridge selects context; it does not mirror every database.
+Finance Git lives in company Google Drive; [FINANCE_GIT.md](FINANCE_GIT.md)
+defines repository links, local checkouts and reviews without GitHub.
+
+The folder tree below describes the existing single-user vault or the LOCAL
+execution workspace created alongside a shared vault. Only in the single-user
+layout do Obsidian and Cursor open the same physical project files.
 
 This kit is portable. On the enterprise work machine, use the company's approved
 local path, for example `~/Work/WorkVault` on a Mac. Keep runtime state in the
@@ -11,7 +17,7 @@ application-data path, by default `~/Library/Application Support/WorkContext` on
 or `%LOCALAPPDATA%\WorkContext` on Windows. Paths on the
 computer that prepared the kit are not work-machine configuration.
 
-## Vault folders and exact ownership
+## Local execution folders and exact ownership
 
 ```text
 WorkVault/                                      Obsidian opens this folder
@@ -103,7 +109,7 @@ stable; rename only as an intentional migration of configuration and links.
 | `BR-###` | Business rule | Unique across Requirements; `BR-001` |
 | `AC-###` | Acceptance criterion | Unique across Requirements; `AC-001` |
 | `CON-###` | Business constraint | Unique across Requirements; `CON-001` |
-| `TASK-###` | Work item and matching technical task | Unique across Work Items; `TASK-001` |
+| `TASK-###` | Project-local technical task | Local `TASK-001`; Notion Work Items External ID is `PRJ-001/TASK-001`, unique across that collection |
 | `BD-###` | Business decision | Unique across Decisions; `BD-001` |
 | `ADR-###` | Technical decision | Unique inside its project; pair with `PRJ-001` when linking elsewhere |
 | `PB-###` | Reusable procedure | Unique inside this work vault; `PB-001` |
@@ -112,8 +118,11 @@ stable; rename only as an intentional migration of configuration and links.
 Use at least three digits; expand beyond 999. Titles may change; IDs do not.
 Do not reuse a retired ID. Notion's UUID identifies the page for API transport;
 `External ID` identifies the business object in readable links and contracts.
-The first scaffold uses `TASK-001`. Give additional projects' tasks the next
-unused ID and match their folder, JSON `id`, Notion record, and selected task.
+The first scaffold uses `TASK-001`. Keep the local folder, JSON `id` and CLI task
+selection as `TASK-001`; prefix the project ID in the Notion Work Item External
+ID and cross-project references. Another project may have `PRJ-002/TASK-001`.
+Existing globally unique task IDs may be retained; record their project mapping
+before adopting composite IDs, and do not rename historical records silently.
 
 Daily notes use ISO dates and a descriptive topic, such as
 `2026-09-09--mapping-review.md`. ADRs and playbooks use the ID plus two hyphens,
@@ -166,13 +175,20 @@ One row per business project. Status options: `Proposed`, `Active`, `On hold`,
 | Additional property | Type | Value / relationship |
 |---|---|---|
 | `Owner` | People | Accountable project owner |
-| `Repository URL` | URL | Approved project Git location |
+| `Repository URL` | URL | Company Google Drive folder sharing URL for that finance repository; a navigation link, not a Git clone URL |
 | `Vault Slug` | Rich text | Exact local folder slug, e.g. `forecast-automation` |
 
 Page template headings, in order: **Purpose; Outcome and success measure; Scope;
 Out of scope; Systems and approved data; Stakeholders; Linked requirements;
 Links**. If the project row is captured as the task's brief, add a concise
 `## Project brief` section containing the context needed for that task.
+
+In **Links**, record the repository's stable project ID, relative Drive location,
+repository form (bare remote or working repository), default branch and Git
+transfer owner. Each Mac keeps its filesystem path and Git remote configuration
+locally; do not put a Mac-specific path into a shared URL property. A handoff
+identifies the reviewed base and candidate by their full Git commit IDs. These
+are human records; the bridge's code fingerprint is a different identifier.
 
 ### Requirements
 
@@ -210,8 +226,9 @@ system and does not infer approval from a label or from an agent's statement.
 
 ### Work Items
 
-One row per business work item. The same `TASK-###` identifies its repository
-contract. Status options: `Backlog`, `Ready`, `In progress`, `Blocked`, `Review`,
+One row per business work item. Notion uses `PRJ-001/TASK-001` as its External ID;
+the corresponding local contract remains `TASK-001`. Status options:
+`Backlog`, `Ready`, `In progress`, `Blocked`, `Review`,
 `Done`, `Cancelled`.
 
 | Additional property | Type | Value / relationship |
@@ -304,7 +321,7 @@ these are views of the same collections, never duplicate databases.
 The route is:
 
 ```text
-Work Item TASK-001 (human business intent)
+Work Item PRJ-001/TASK-001 (human business intent in Notion)
     → repo/tasks/TASK-001/task.json (deliberate technical contract)
     → acceptance_ids: AC-001
     → criteria_rules: AC-001 → BR-001
