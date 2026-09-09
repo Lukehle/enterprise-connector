@@ -6,8 +6,9 @@ files. The bridge assembles selected approved context; it does not mirror every
 Notion database into Markdown.
 
 This kit is portable. On the enterprise work machine, use the company's approved
-local path, for example `C:\Work\WorkVault`. Keep runtime state in the configured
-application-data path, for example `%LOCALAPPDATA%\WorkContext`. Paths on the
+local path, for example `~/Work/WorkVault` on a Mac. Keep runtime state in the
+application-data path, by default `~/Library/Application Support/WorkContext` on macOS
+or `%LOCALAPPDATA%\WorkContext` on Windows. Paths on the
 computer that prepared the kit are not work-machine configuration.
 
 ## Vault folders and exact ownership
@@ -266,16 +267,18 @@ Append-only reviewed summaries. Status option: `Published`.
 
 Page template headings, in order: **Outcome; Changes; Verification evidence;
 Limitations; Next action; Task and bundle IDs**. The publisher writes the reviewed
-body plus Name, External ID, Payload Hash, and Status. It does not infer or set
-Classification or relation fields; complete those manually when using the board.
+body plus Name, External ID, Payload Hash, Status, and an explicit Classification.
+Optional Project and Work Item page IDs populate relations after destination
+validation. All supplied metadata is bound to the reviewed payload hash.
 It inserts new records and detects duplicate IDs; corrections use a new update.
 It does not modify requirements, task status, owners, deadlines, or acceptance.
 
 ## Exact Notion views and templates
 
-The bootstrap creates each database with its default table view. Create these
-named views and page templates manually in Notion; this kit does not claim to
-install views or template UI objects.
+The bootstrap creates each database with its default table view. The separate
+`notion-views` command plans and creates these twelve named views. Export the
+five Markdown bodies with `export-notion-templates`; create native database
+templates in Notion and paste those bodies. See [Notion setup](NOTION_SETUP.md).
 
 | Collection | View name | Layout | Filter / sort |
 |---|---|---|---|

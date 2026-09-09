@@ -1,0 +1,58 @@
+name: Portable kit checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-kit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        python: ['3.11', '3.14']
+    env:
+      PYTHONPATH: src
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit and integration tests
+        run: python -m unittest discover -s tests -v
+      - name: Offline installation self-test
+        run: python work-context.py self-test
+      - name: Build portable archive
+        run: python scripts/package_kit.py
+      - name: Verify and run the extracted archive
+        shell: python
+        run: |
+          from pathlib import Path
+          import subprocess, sys, tomllib
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          subprocess.run([sys.executable, 'scripts/verify_kit.py', f'dist/enterprise-connector-v{version}.zip', '--smoke'], check=True)
+      - name: Retain verified kit
+        if: matrix.os == 'macos-latest' && matrix.python == '3.14'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: enterprise-connector-portable-kit
+          path: |
+            dist/enterprise-connector-v*.zip
+            dist/enterprise-connector-v*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

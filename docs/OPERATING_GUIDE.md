@@ -1,274 +1,235 @@
-# Work-machine setup and daily operating guide
+# Work Mac setup and daily operation
 
-This is a portable setup kit for the separate enterprise work machine. The
-included demonstration uses synthetic requirements. The bridge performs no
-model calls and installs no Obsidian plugin, scheduler, autonomous worker, or
-test runner.
+Enterprise Connector runs locally with Python 3.11 or newer and no third-party
+runtime packages. Obsidian and Cursor share the same files. Notion is the source
+of selected business context. Claude receives a deliberate Markdown handoff.
 
-Use [`TAXONOMY.md`](TAXONOMY.md) for the exact folder and Notion property names.
-The first pilot is `PRJ-001` / `forecast-automation` / `TASK-001`.
+Use the [exact taxonomy](TAXONOMY.md), [Notion setup guide](NOTION_SETUP.md), and
+[work-machine checklist](WORK_MACHINE_CHECKLIST.md) alongside these steps.
+Windows alternatives are in [scripts/README.md](../scripts/README.md).
 
-## 1. Copy and verify the kit on the work machine
+## 1. Verify the download on the Mac
 
-Copy the kit's source, scripts, tests, and documentation through the approved
-transfer process into a tools folder such as `C:\Work\Tools\enterprise-connector`.
-Do not copy a personal vault, credential, live state registry, or captured work
-data between machines. Use the enterprise's approved Python 3.11 or newer.
-The command-line launcher runs directly; installation and third-party Python
-packages are not required.
+Download the ZIP and matching `.sha256` file from the GitHub release to the same
+folder. In Terminal there, check the archive before extracting:
 
-Open PowerShell in the kit folder. Check the available commands:
-
-```powershell
-python .\work-context.py --help
+```bash
+shasum -a 256 -c enterprise-connector-v0.2.0.zip.sha256
+unzip enterprise-connector-v0.2.0.zip
+cd enterprise-connector
+python3 work-context.py self-test
 ```
 
-The commands below assume that working directory. If the enterprise uses a
-specific Python executable, substitute that executable for `python`.
+Use an empty extraction destination for each version. If `python3` is absent or
+older than 3.11, select an existing work-approved runtime; the kit does not
+install one. Self-test uses a temporary synthetic vault, removes it afterwards,
+and makes no network or model calls. A release ZIP also checks its file manifest.
+The checksum verifies the downloaded bytes against the accompanying file; it
+is not an independently signed publisher identity.
 
-## 2. Run an isolated synthetic demonstration
+Keep code and work data in work-approved locations. Initialize configuration and
+credentials on the work machine; a configuration copied from another computer
+contains that computer's absolute paths and state binding.
 
-Choose separate demonstration paths; do not reuse the live project state.
+## 2. Inspect an isolated demonstration
 
-```powershell
-python .\work-context.py init --vault 'C:\Work\WorkVault-Demo' --project forecast-automation --state-dir "$env:LOCALAPPDATA\WorkContext\demo-forecast-automation" --demo
-$wcDemoConfig = 'C:\Work\WorkVault-Demo\10 Projects\forecast-automation\context\config.json'
-python .\work-context.py --config $wcDemoConfig sync --task TASK-001
-python .\work-context.py --config $wcDemoConfig status
-python .\work-context.py --config $wcDemoConfig packet --for cursor
+```bash
+bash scripts/Install-WorkContext.sh --vault "$HOME/Work/WorkVault-Demo" --project forecast-automation --demo
+wc_demo_config="$HOME/Work/WorkVault-Demo/10 Projects/forecast-automation/context/config.json"
+python3 work-context.py --config "$wc_demo_config" sync --task TASK-001
+python3 work-context.py --config "$wc_demo_config" status
+python3 work-context.py --config "$wc_demo_config" packet --for cursor
 ```
 
-The sync result returns the source hash, bundle ID, packet path, zero model
-calls, and review status. `FRESH` means the capture and local candidate are
-current according to the local freshness policy; it does not mean the source
-has been reviewed. Initially, `review_status` is `REVIEW_REQUIRED`. The generated
-packet can be inspected while that review is pending.
+Open `~/Work/WorkVault-Demo` as an existing vault in Obsidian. Open its
+`10 Projects/forecast-automation` folder in Cursor. Read `context/START_HERE.md`
+and the linked packets. This is one physical copy shared by both applications.
 
-Open `C:\Work\WorkVault-Demo` as an existing vault in Obsidian. Open
-`C:\Work\WorkVault-Demo\10 Projects\forecast-automation` as the Cursor folder.
-Read `context\START_HERE.md` and its release links in both applications. There
-is one copy of each file on disk.
+`FRESH` means the capture and candidate match the local freshness policy.
+`REVIEW_REQUIRED` means that exact source capture has no local acknowledgment.
+Inspect the synthetic source and packet, then use the returned `source_hash`:
 
-To exercise source review, inspect the synthetic source and generated packet,
-then use the exact `source_hash` returned by sync:
-
-```powershell
-python .\work-context.py --config $wcDemoConfig approve-source --reviewed-hash '<source_hash-from-sync>' --actor '<reviewer-name>'
-python .\work-context.py --config $wcDemoConfig sync --task TASK-001
+```bash
+python3 work-context.py --config "$wc_demo_config" approve-source --reviewed-hash '<source_hash>' --actor '<reviewer-name>'
+python3 work-context.py --config "$wc_demo_config" sync
 ```
 
-The next release reports `REVIEW_ACKNOWLEDGED_LOCAL`. The command records your
-review of that exact local capture. It is not protected enterprise
-authorization, a substitute for the business review process, permission to run
-project code, or evidence that a task passed tests.
+The next packet reports `REVIEW_ACKNOWLEDGED_LOCAL`. This records a human review
+of the local source capture. It does not grant execution permission or establish
+that implementation, tests or business acceptance are complete.
 
-## 3. Initialize the real work vault
+## 3. Initialize the real vault
 
-Use the approved work-machine locations. These examples keep the vault and
-runtime state separate and outside a general cloud-sync folder:
-
-```powershell
-python .\work-context.py init --vault 'C:\Work\WorkVault' --project forecast-automation --state-dir "$env:LOCALAPPDATA\WorkContext\forecast-automation"
-$wcConfig = 'C:\Work\WorkVault\10 Projects\forecast-automation\context\config.json'
-python .\work-context.py --config $wcConfig doctor
+```bash
+bash scripts/Install-WorkContext.sh --vault "$HOME/Work/WorkVault" --project forecast-automation --self-test
+wc_config="$HOME/Work/WorkVault/10 Projects/forecast-automation/context/config.json"
+python3 work-context.py --config "$wc_config" doctor
 ```
 
-Use `--project-id PRJ-002` and a new slug for the next project. When `--state-dir`
-is omitted, the default state folder includes the slug and a vault-path hash so
-separate vaults do not accidentally share state. Explicit state directories
-are also bound to their owning project.
+These paths are examples. Choose the work-approved location, keeping runtime
+state outside the vault and outside personal cloud sync. On macOS the default
+state directory is `~/Library/Application Support/WorkContext/<slug>-<vault-hash>`.
+The hash distinguishes vaults with the same project slug. Explicit `--state-dir`
+paths must also be separate and are bound to their owning project.
 
-This creates a scaffold with `mode: unconfigured`. There is no live Notion read
-until the source allowlist is configured. Fill the technical overview and task
-contract deliberately; the starter text is not a real company's requirements.
+Use `--project-id PRJ-002` and a new slug for another project. Initialization
+preserves existing content and configuration. It starts `unconfigured` and
+makes no live Notion request. It creates a starter technical overview and task
+contract; replace their synthetic assumptions before using real requirements.
 
-The tool uses `repo` as the project repository folder and does not initialize
-or clone Git automatically. Put the actual project implementation there using
-the approved Git workflow. Keep human notes in the sibling `notes` directory.
-Scaffold reruns preserve existing content and config; they do not reset a live
-setup into demo mode or replace an edited project contract.
+Put the real project implementation in the wrapper's `repo` folder through your
+normal Git workflow. The bridge does not clone or initialize a repository. Keep
+human working notes in the sibling `notes` folder. Fill `repo/docs/AI_OVERVIEW.md`
+and `repo/tasks/TASK-001/task.json` deliberately.
 
-Default config values allow `Public` and `Internal` source classifications,
-expire freshness after 900 seconds, and limit each packet to 24,000 UTF-8 bytes
-and 6,000 estimated tokens. Review configuration against the actual project.
-Token estimates use bytes divided by four and are not vendor billing counts.
-The kit does not infer authorization from these defaults.
+The configuration initially allows Public and Internal classifications, expires
+freshness after 900 seconds, and limits each packet to 24,000 UTF-8 bytes and
+6,000 estimated tokens. The estimate is bytes divided by four, not vendor usage.
+Review these limits for the actual project. `repo_include` plus the task's
+`allowed_files` determine fingerprint scope; these are change detectors, not
+operating-system write restrictions.
 
-## 4. Create the Notion taxonomy
+## 4. Create and connect Notion
 
-Create or select the intended Notion parent page named **Work Context** in the
-enterprise workspace. The setup command creates five empty databases beneath
-that page; it does not migrate existing databases or generate fake business
-records. If you already have these collections, inspect them against the schema
-and configure their existing source pages instead of creating duplicates.
+Create/select the **Work Context** parent page in the enterprise workspace.
+Provision the connections using your work-approved credential mechanism:
+`NOTION_READ_TOKEN` for source reads; `NOTION_WRITE_TOKEN` only for intentional
+setup/publication. Tokens are read from the process environment and are never
+stored by the kit. The writer needs read access to its destination for schema
+validation and duplicate reconciliation.
 
-Use a Notion connection with the enterprise-approved access. Provision
-`NOTION_READ_TOKEN` for the read-only source connection through the work
-machine's approved credential mechanism. Provision `NOTION_WRITE_TOKEN` only
-for the bootstrap or publication operation with access to the intended
-destination. The tokens are read from the current process environment and are
-not stored in config, the vault, or the kit. Do not place a credential in these
-command examples or a task packet.
+Plan the exact five-collection schema:
 
-Prepare the exact creation plan without writing to Notion:
-
-```powershell
-python .\work-context.py --config $wcConfig notion-plan --parent-page '<Work-Context-page-URL-or-ID>'
-python .\work-context.py --config $wcConfig notion-bootstrap --parent-page '<Work-Context-page-URL-or-ID>'
+```bash
+python3 work-context.py --config "$wc_config" notion-bootstrap --parent-page '<Work-Context-page-URL-or-ID>'
 ```
 
-Inspect the destination and all five schemas in the returned plan. The second
-command is also a dry run unless `--apply` is supplied. To apply the exact
-reviewed plan, use the `reviewed_operation_hash` returned by that command:
+Inspect the returned destination, schemas and `reviewed_operation_hash`, then
+apply the same reviewed plan:
 
-```powershell
-python .\work-context.py --config $wcConfig notion-bootstrap --parent-page '<Work-Context-page-URL-or-ID>' --apply --reviewed-hash '<review-hash-from-plan>'
+```bash
+python3 work-context.py --config "$wc_config" notion-bootstrap --parent-page '<Work-Context-page-URL-or-ID>' --apply --reviewed-hash '<operation-hash>'
+python3 work-context.py --config "$wc_config" notion-views
+python3 work-context.py --config "$wc_config" notion-views --apply --reviewed-hash '<view-plan-hash>'
+python3 work-context.py export-notion-templates --output "$HOME/Work/NotionTemplates"
 ```
 
-The registry at the configured state directory's `notion-bootstrap.json`
-records database and data-source IDs. Keep that file with the matching setup;
-rerunning against it reuses known databases. If a creation response was
-ambiguous, inspect Notion and reconcile the recorded pending operation before
-retrying. Do not discard that registry to force another creation.
+The first apply creates schemas and relations. The view command creates the 12
+named views from the taxonomy. Exported Markdown supplies the five native
+Notion database templates; installing those template UI objects remains a
+manual step. Follow [Notion setup](NOTION_SETUP.md) for exact instructions,
+required connection sharing and recovery commands.
 
-Now add the named views and page templates from the taxonomy document manually.
-The API bootstrap creates the schema and default table views; it does not
-install those named view or template UI objects. Create the first Project row,
-the required BR/AC/CON rows, and the Work Item with the IDs from the local
-contract. Notion relations and ownership fields are maintained in Notion.
+Create the initial Project row, BR/AC/CON requirement rows, and Work Item with
+IDs matching the local contract. Owners, approved statuses and real business
+content come from your work process. The bridge does not invent work records.
 
-## 5. Configure the inbound bridge
+Explicitly allowlist the project brief and every required rule/criterion page:
 
-The source boundary is an explicit list of page IDs. Share only the intended
-source pages with the read connection. Include the project brief page and every
-required rule or acceptance row, or an existing standalone requirements page
-with the ID headings in the supplied template. Referenced links and relation
-targets are not captured automatically.
-
-```powershell
-python .\work-context.py --config $wcConfig configure-notion --page-id '<project-brief-page-ID>' --page-id '<BR-001-page-ID>' --page-id '<AC-001-page-ID>' --reviewed-scope
-python .\work-context.py --config $wcConfig doctor
-python .\work-context.py --config $wcConfig sync --task TASK-001
+```bash
+python3 work-context.py --config "$wc_config" configure-notion --page-id '<project-brief-page-ID>' --page-id '<BR-001-page-ID>' --page-id '<AC-001-page-ID>' --reviewed-scope
+python3 work-context.py --config "$wc_config" connection-check
+python3 work-context.py --config "$wc_config" sync --task TASK-001
 ```
 
-`--reviewed-scope` records the deliberate selection of the page scope on this
-machine. It does not mean the page contents have been reviewed. After inspecting
-the capture and packet, acknowledge the exact returned source hash and refresh:
+`connection-check` verifies read access without saving source content. Add
+`--include-bootstrap` to validate registered schemas too; this requires sharing
+those collections with the read connection. It does not test insert capability.
 
-```powershell
-python .\work-context.py --config $wcConfig approve-source --reviewed-hash '<source_hash-from-sync>' --actor '<reviewer-name>'
-python .\work-context.py --config $wcConfig sync --task TASK-001
-```
+`--reviewed-scope` acknowledges the chosen source boundary. It does not review
+the source contents. Inspect the capture and packet, acknowledge the returned
+source hash, then sync again as in the demo. Requirement rows must have a
+consistent Type, External ID, explicit Classification and human-maintained
+Approved status before local acknowledgment.
 
-The adapter requests full Markdown for the allowed pages, checks metadata for
-concurrent edits, and refuses incomplete or unsupported required content. It
-does not browse the rest of the Notion workspace or download attachments. A
-Notion `Approved` label and the local source review are separate facts.
-
-The local contract's `criteria_rules` must map each `AC-###` to its `BR-###` or
-`CON-###` rules; use `rule_dependencies` for additional required IDs. The
-compiler also includes dependencies declared in the captured row's structured
-`Depends On IDs` property. Referenced pages still need to be allowlisted
-explicitly. Confirm the mappings and source scope before refreshing; the
+Referenced pages and relation targets are not captured automatically. The
+contract's `criteria_rules` maps each acceptance ID to its required rules;
+`rule_dependencies` adds other required IDs. Structured `Depends On IDs` from
+captured rows also participates. All required pages must be allowlisted. The
 compiler cannot discover a forgotten dependency from prose.
 
-## 6. Start and finish a normal task
+## 5. Start and finish a task
 
-At task start, update the local technical contract, verify its IDs against the
-Notion Work Item, and refresh:
-
-```powershell
-python .\work-context.py --config $wcConfig sync --task TASK-001
-python .\work-context.py --config $wcConfig status
-python .\work-context.py --config $wcConfig packet --for cursor
+```bash
+python3 work-context.py --config "$wc_config" sync --task TASK-001
+python3 work-context.py --config "$wc_config" status
+python3 work-context.py --config "$wc_config" packet --for cursor
 ```
 
-Review freshness and review status separately. Resolve changed source reviews
-before implementation. Cursor reads the returned packet and relevant project
-files from the shared project wrapper. Confirm the small project rule appears
-in the installed Cursor version. `.cursorignore` reduces accidental indexing of
-notes and fixture inputs; it is not an operating-system access restriction.
+Review freshness and source acknowledgment separately. Cursor reads the
+returned packet plus relevant current source files. Confirm its small project
+rule is loaded. `.cursorignore` reduces accidental indexing of notes and
+fixtures; it is not an access-control boundary. Follow the current pointer,
+not an older release link from a previous conversation.
 
-When a Claude design or review pass is warranted, obtain the deliberate handoff:
+For a Claude design/review pass:
 
-```powershell
-python .\work-context.py --config $wcConfig packet --for claude
+```bash
+python3 work-context.py --config "$wc_config" packet --for claude
 ```
 
-Upload or paste only the returned `CLAUDE_PACKET.md` into the approved Claude
-workspace through its normal interface. This kit does not connect or synchronize
-Claude conversations and does not use a Claude API account. Record the task and
-bundle IDs in the resulting proposal or review so its context remains traceable.
+Paste/upload the returned `CLAUDE_PACKET.md` to the approved Claude workspace.
+The kit does not synchronize Claude conversations or use a Claude API account.
+Record the task and bundle IDs with the resulting review.
 
 Run the actual project's reviewed tests through its established workflow.
-Record the command, result, and evidence with the implementation. This kit does
-not execute tests, protect a verification sandbox, or decide business acceptance.
-The human Work Item owner updates Notion verification and acceptance fields from
-real evidence. Code edits make the previous candidate stale; `sync` creates a
-new packet while source review remains attached to the captured business content.
+Record the command, result and evidence with the implementation. This connector
+never executes project code or decides business acceptance. The Work Item
+owner updates verification and acceptance from real evidence. Code edits make
+the old candidate stale; sync generates a new packet while unchanged business
+source review remains valid.
 
-No polling or scheduler is installed. Refresh explicitly at task start and
-before preparing an update. The tool cannot detect a Notion edit until the next
-live read. A local `status` check evaluates the last capture age and local
-changes; it is not a new server capture.
+No scheduler is installed. Refresh explicitly at task start and before preparing
+an update. `status` checks capture age and local changes; only `sync` discovers
+remote Notion edits. File-based pointers cannot retract material already opened
+or pasted into another application.
 
-## 7. Prepare and optionally publish a reviewed update
+## 6. Publish an outcome
 
-After a fresh sync, create a local draft using your actual observations:
+After a fresh sync, draft your actual observations locally:
 
-```powershell
-python .\work-context.py --config $wcConfig draft-update --title 'TASK-001 mapping validation update' --summary '<actual outcome, check evidence, limitations, and next action>'
+```bash
+python3 work-context.py --config "$wc_config" draft-update --title 'TASK-001 mapping validation update' --summary '<actual outcome, check evidence, limitations and next action>' --classification Internal --project-page-id '<Project-row-page-ID>' --work-item-page-id '<Work-Item-row-page-ID>'
 ```
 
-The result includes `draft_path`, the Markdown payload, and its hash. The
-generated bridge observations explicitly say verification and business
-acceptance have not been recorded by this bridge. A human-supplied summary is
-not automatically trusted evidence.
+Relations are optional; when supplied, they are checked against the destination
+relation schema. Classification and relation IDs are bound to the draft hash.
+Generated bridge observations truthfully retain NOT_RUN / NOT_RECORDED for
+verification, business acceptance and deployment. A human-supplied summary is
+not automatically verified evidence.
 
-Review the draft, then prepare the exact outbound payload using the
-**Automation Updates data-source ID** from the bootstrap registry:
+Review the draft and the registered Automation Updates **data-source ID**:
 
-```powershell
-python .\work-context.py --config $wcConfig publish --draft '<draft_path>' --data-source-id '<automation-updates-data-source-ID>'
+```bash
+python3 work-context.py --config "$wc_config" publish --draft '<draft_path>' --data-source-id '<updates-data-source-ID>'
+python3 work-context.py --config "$wc_config" publish --draft '<draft_path>' --data-source-id '<updates-data-source-ID>' --apply --reviewed-hash '<operation-hash>'
 ```
 
-This is a dry run. After reviewing the destination and content, apply its exact
-`reviewed_operation_hash`:
+Apply refreshes the source before sending and refuses a stale draft. Publication
+appends to Automation Updates; it does not change requirements or business
+statuses. Correct an update with a new reviewed draft. Preserve the outbox journal.
 
-```powershell
-python .\work-context.py --config $wcConfig publish --draft '<draft_path>' --data-source-id '<automation-updates-data-source-ID>' --apply --reviewed-hash '<review-hash-from-plan>'
-```
+## Recovery and upgrades
 
-The publisher appends to Automation Updates. It does not update Requirements,
-Work Items, Decisions, owners, deadlines, or business acceptance. Complete the
-new update's Classification, Project, and Work Item relations manually; the
-initial publisher does not infer them. Correct an update with a newly reviewed
-draft and ID. Preserve the local publication journal to support safe retries.
-
-## Troubleshooting and maintenance
-
-| Observation | Meaning / next action |
+| Diagnostic | Next action |
 |---|---|
-| `NOT_CONFIGURED` | Set the explicit Notion page scope, or use a separately initialized demo vault. |
-| Missing read credential | Provision `NOTION_READ_TOKEN` on the work machine using the approved mechanism; use `doctor` to check presence. |
-| `REVIEW_REQUIRED` with `FRESH` | The source was captured successfully but that exact hash has no current local review acknowledgment. Inspect it, acknowledge the hash, then sync. |
-| `STALE` | Capture age expired, or local code/task/brief changed. Run sync and inspect the new state. |
-| `MISSING_REQUIREMENT` | A declared rule/criterion/dependency was absent. Fix source scope, exact IDs, or the reviewed contract. |
-| `DUPLICATE_ID` | More than one captured section claims the same requirement. Keep one canonical body. |
-| `INCOMPLETE` | Required content was truncated, unknown, unsupported, or otherwise incomplete. Fix the source structure or sharing; do not treat a previous packet as newly current. |
-| `CONTEXT_TOO_LARGE` | Split the task or shorten an approved brief. Required rules are never silently removed to fit a budget. |
-| `INTEGRITY` | A generated release was changed or is missing. Investigate the modified artifact; do not manually patch its manifest to silence the check. |
-| `BOOTSTRAP_UNCERTAIN` / `WRITE_UNCERTAIN` | An external write outcome needs reconciliation. Inspect Notion and the journal before another write. |
-| `BUSY` | Another command owns the project-state lock. Wait for it to finish, then retry. |
+| NOT_CONFIGURED / AUTH_REQUIRED | Set explicit source scope and provision the local read credential. |
+| STALE | Sync; inspect code, task, overview, configuration or age changes. |
+| MISSING_REQUIREMENT / DUPLICATE_ID | Fix explicit scope, stable IDs and the reviewed dependency mapping. |
+| INCOMPLETE | Resolve unsupported/truncated content, revision changes or sharing. |
+| CONTEXT_TOO_LARGE | Split the task or shorten an approved brief; required rules are never dropped. |
+| INTEGRITY | Inspect the modified packet, then run `sync --task TASK-001 --repair`. It quarantines the damaged release and recaptures current sources. |
+| QUARANTINE_PENDING | Resolve filesystem permissions/open-file problems. Sync retries quarantine and blocks new packets until it completes. |
+| BOOTSTRAP_UNCERTAIN / WRITE_UNCERTAIN | Inspect Notion; use the explicit candidate-ID reconciliation in the Notion guide. Do not discard journals to force a retry. |
+| BUSY | Let the other command release the project lock, then retry. |
 
-Keep repository code and reviewed technical documentation in the approved Git
-workflow. Back up the non-Git vault notes and runtime state according to the
-enterprise's policy. Credentials are provisioned independently. Do not place
-the state registry into a personal sync folder or treat a copied config as a
-portable connection: initialize paths and credentials afresh on the target
-machine.
+For an upgrade, extract a fresh kit folder, verify it, and run self-test. Point
+the new launcher at the existing work-machine config. An updated compiler makes
+old packets stale; sync compiles a new release. The v0.1 schema registry can be
+reused only after its live schema is validated. Back up vault notes and private
+state using the work backup process. State contains source captures and drafts;
+it needs the same care as the original work data.
 
-For the first pilot, record paid extra usage, accepted tasks completed before a
-usage limit, and human preparation/review time. Include failed attempts. The kit
-reduces repeated context assembly; its financial benefit must be measured in
-the actual Claude/Cursor accounts and workload.
+For the pilot, record extra paid usage, accepted tasks before hitting a limit,
+and human preparation/review time, including failed attempts. This determines
+whether the smaller context packets repay the additional process overhead.

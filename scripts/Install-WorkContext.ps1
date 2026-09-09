@@ -16,7 +16,11 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $Python = 'python',
 
-    [switch] $Demo
+    [switch] $Demo,
+
+    [switch] $SelfTest,
+
+    [switch] $PreflightOnly
 )
 
 Set-StrictMode -Version Latest
@@ -60,12 +64,30 @@ try {
         if ($resolvedStateDir.TrimEnd('\', '/') -eq [System.IO.Path]::GetPathRoot($resolvedStateDir).TrimEnd('\', '/')) {
             throw 'Choose a dedicated state directory, not a drive or share root.'
         }
+        $vaultPrefix = $resolvedVaultPath.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+        $statePrefix = $resolvedStateDir.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+        if ($vaultPrefix.StartsWith($statePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $statePrefix.StartsWith($vaultPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Vault and state must be separate non-overlapping directories.'
+        }
         $initArguments += @('--state-dir', $resolvedStateDir)
     }
     if ($Demo) {
         $initArguments += '--demo'
     }
 
+    if (Test-Path -LiteralPath (Join-Path $kitRoot 'FILE_MANIFEST.json') -PathType Leaf) {
+        & $pythonExecutable (Join-Path $PSScriptRoot 'verify_kit.py') $kitRoot
+        if ($LASTEXITCODE -ne 0) { throw 'Kit manifest verification failed.' }
+    }
+    if ($SelfTest) {
+        & $pythonExecutable $launcher self-test
+        if ($LASTEXITCODE -ne 0) { throw 'Synthetic installation self-test failed.' }
+    }
+    if ($PreflightOnly) {
+        Write-Host 'Preflight passed. No target vault or state directory was created.'
+        exit 0
+    }
     Write-Host "Using Python $($versionOutput -join ' ') to initialize '$resolvedVaultPath'."
     & $pythonExecutable @initArguments
     $initExitCode = $LASTEXITCODE

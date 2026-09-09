@@ -15,11 +15,14 @@ import re
 import threading
 import time
 from urllib import error, request
+from urllib.parse import parse_qsl, urlsplit
 from uuid import UUID
 
 from .common import BridgeError, atomic_json, digest, read_json
 
 API_VERSION = "2026-03-11"
+# v0.1 had identical database properties but older setup/publisher policy prose.
+LEGACY_SCHEMA_HASH = "d731e0bb68d7709b1d2c215bfac44b58b02cbb755017dcee4c006e531a184adc"
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_READ_RETRIES = 2
 MAX_RETRY_DELAY = 15.0
@@ -55,7 +58,18 @@ def _rich_text(value: str) -> list:
 
 
 def _plain(items: list) -> str:
-    return "".join(item.get("plain_text", item.get("text", {}).get("content", "")) for item in items)
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise BridgeError("INVALID_RESPONSE", "Notion returned malformed rich text.")
+    values = []
+    for item in items:
+        value = item.get("plain_text")
+        if value is None:
+            nested = item.get("text", {})
+            value = nested.get("content", "") if isinstance(nested, dict) else None
+        if not isinstance(value, str):
+            raise BridgeError("INVALID_RESPONSE", "Notion returned malformed rich text.")
+        values.append(value)
+    return "".join(values)
 
 
 class NotionHTTPError(Exception):
@@ -109,7 +123,20 @@ class NotionClient:
             raise NotionHTTPError(exc.code, exc.headers.get("Retry-After")) from None
 
     def call(self, method: str, path: str, payload=None, *, read=False) -> dict:
-        if not re.fullmatch(r"/v1/(?:pages|databases|data_sources)(?:/[a-zA-Z0-9_-]+){0,2}", path):
+        parsed = urlsplit(path)
+        ordinary = (not parsed.query and not (method == "GET" and parsed.path == "/v1/views")
+                    and re.fullmatch(r"/v1/(?:pages|databases|data_sources|views)(?:/[a-zA-Z0-9_-]+){0,2}", path))
+        view_list = False
+        if method == "GET" and read and parsed.path == "/v1/views" and parsed.query:
+            pairs = parse_qsl(parsed.query, keep_blank_values=True)
+            params = dict(pairs)
+            view_list = (len(pairs) == len(params) and set(params) <= {"database_id", "page_size", "start_cursor"}
+                         and "database_id" in params and params.get("page_size", "100") == "100")
+            if view_list:
+                _id(params["database_id"])
+                if "start_cursor" in params:
+                    _id(params["start_cursor"])
+        if parsed.scheme or parsed.netloc or parsed.fragment or not (ordinary or view_list):
             raise BridgeError("INVALID_ENDPOINT", "The Notion bridge refused an unsupported endpoint.")
         attempts = MAX_READ_RETRIES + 1 if read else 1
         for attempt in range(attempts):
@@ -175,7 +202,9 @@ class NotionClient:
                 raise BridgeError("INCOMPLETE_SOURCE", "Notion page content is truncated, inaccessible, or unsupported.")
             after = self.call("GET", f"/v1/pages/{page_id}", read=True)
             after_title = _page_metadata(after, page_id)
-            if before["last_edited_time"] != after["last_edited_time"] or title != after_title:
+            if (before["last_edited_time"] != after["last_edited_time"] or title != after_title
+                    or before.get("properties") != after.get("properties")
+                    or before.get("parent") != after.get("parent")):
                 raise BridgeError("SOURCE_CHANGED", "A Notion page changed during refresh; refresh again before compiling.")
             props = after.get("properties", {})
             row = {"id": page_id, "title": title, "markdown": markdown,
@@ -186,6 +215,8 @@ class NotionClient:
                                           ("Classification", "classification")):
                 if prop_name in props:
                     selection = props[prop_name].get("select") or {}
+                    if not isinstance(selection, dict) or not isinstance(selection.get("name", ""), str):
+                        raise BridgeError("INVALID_SOURCE", "A Notion taxonomy selection is malformed.")
                     row[field_name] = selection.get("name", "")
             row.update(_source_links(props))
             pages.append(row)
@@ -229,6 +260,8 @@ def _page_metadata(page, page_id):
             or not isinstance(page.get("last_edited_time"), str) or not page["last_edited_time"]):
         raise BridgeError("INVALID_SOURCE", "Notion source metadata is incomplete, archived, or invalid.")
     properties = page.get("properties", {})
+    if not isinstance(properties, dict) or any(not isinstance(prop, dict) for prop in properties.values()):
+        raise BridgeError("INVALID_SOURCE", "Notion page properties are malformed.")
     for prop in properties.values():
         if prop.get("type") == "title" and isinstance(prop.get("title"), list):
             return _plain(prop["title"])
@@ -279,11 +312,82 @@ def _database_payload(spec, parent_page_id, known):
             "initial_data_source": {"properties": properties}}
 
 
+def _bootstrap_state(state, parent_page_id=None, *, complete=False):
+    """Validate journal structure before reading remote IDs or performing writes."""
+    schema = load_schema()
+    keys = [spec["key"] for spec in schema["databases"]]
+    if (not isinstance(state, dict) or state.get("kind") != "notion_bootstrap"
+            or state.get("schema_hash") not in (digest(schema), LEGACY_SCHEMA_HASH)
+            or not isinstance(state.get("databases"), dict)):
+        raise BridgeError("STATE_MISMATCH", "Bootstrap state belongs to an unsupported schema or is malformed.")
+    parent = _id(state.get("parent_page_id"))
+    if parent_page_id is not None and parent != _id(parent_page_id):
+        raise BridgeError("STATE_MISMATCH", "Bootstrap state belongs to a different parent.")
+    records = state["databases"]
+    if set(records) != set(keys[:len(records)]):
+        raise BridgeError("STATE_MISMATCH", "Bootstrap database records are not a valid completed prefix.")
+    database_ids, source_ids = [], []
+    for record in records.values():
+        if not isinstance(record, dict):
+            raise BridgeError("STATE_MISMATCH", "A bootstrap database record is malformed.")
+        database_ids.append(_id(record.get("database_id")))
+        source_ids.append(_id(record.get("data_source_id")))
+    if len(set(database_ids)) != len(database_ids) or len(set(source_ids)) != len(source_ids):
+        raise BridgeError("STATE_MISMATCH", "Bootstrap records reuse a database or data source ID.")
+    pending = state.get("pending")
+    if pending is not None:
+        if (not isinstance(pending, dict) or len(records) >= len(keys)
+                or pending.get("key") != keys[len(records)]
+                or not isinstance(pending.get("payload_hash"), str)):
+            raise BridgeError("STATE_MISMATCH", "Bootstrap pending operation is malformed.")
+        spec = schema["databases"][len(records)]
+        known = {key: _id(record["data_source_id"]) for key, record in records.items()}
+        if digest(_database_payload(spec, parent, known)) != pending["payload_hash"]:
+            raise BridgeError("STATE_MISMATCH", "The pending database payload differs from the recorded intent.")
+    if complete and (pending is not None or len(records) != len(keys)):
+        raise BridgeError("BOOTSTRAP_INCOMPLETE", "Finish or reconcile database setup before using this operation.")
+    return schema
+
+
+def _verify_database(client, spec, record, parent_page_id, known):
+    """Verify identity, ownership, property types, selections and relation targets."""
+    database_id, source_id = _id(record["database_id"]), _id(record["data_source_id"])
+    database = client.call("GET", f"/v1/databases/{database_id}", read=True)
+    if (database.get("object") != "database" or _id(database.get("id")) != database_id
+            or database.get("archived", False) or database.get("in_trash", False)
+            or _id(database.get("parent", {}).get("page_id")) != parent_page_id
+            or _plain(database.get("title", [])) != spec["name"]
+            or source_id not in [_id(source.get("id")) for source in database.get("data_sources", [])]):
+        raise BridgeError("STATE_MISMATCH", "A registered database has changed identity, parent, title, or data source.")
+    source = client.call("GET", f"/v1/data_sources/{source_id}", read=True)
+    if (source.get("object") != "data_source" or _id(source.get("id")) != source_id
+            or source.get("archived", False) or source.get("in_trash", False)
+            or _id(source.get("parent", {}).get("database_id")) != database_id):
+        raise BridgeError("STATE_MISMATCH", "A registered data source was moved, archived, or replaced.")
+    expected = _database_payload(spec, parent_page_id, known)["initial_data_source"]["properties"]
+    actual = source.get("properties")
+    if not isinstance(actual, dict):
+        raise BridgeError("SCHEMA_MISMATCH", "A registered data source has no readable properties.")
+    for name, shape in expected.items():
+        kind = next(iter(shape))
+        prop = actual.get(name)
+        if not isinstance(prop, dict) or prop.get("type") != kind or not isinstance(prop.get(kind), dict):
+            raise BridgeError("SCHEMA_MISMATCH", f"The {spec['name']} property {name} is missing or has the wrong type.")
+        if kind == "select":
+            options = prop[kind].get("options")
+            if not isinstance(options, list) or {entry.get("name") for entry in options if isinstance(entry, dict)} != {entry["name"] for entry in shape[kind]["options"]}:
+                raise BridgeError("SCHEMA_MISMATCH", f"The {spec['name']} property {name} has different selection options.")
+        if kind == "relation" and (_id(prop[kind].get("data_source_id")) != shape[kind]["data_source_id"]
+                                    or prop[kind].get("type") != "single_property"):
+            raise BridgeError("SCHEMA_MISMATCH", f"The {spec['name']} relation {name} targets a different data source or relation type.")
+    return source
+
+
 def bootstrap(client: NotionClient, parent_page_id: str, state_path, apply: bool = False) -> dict:
     """Plan or create a fresh taxonomy. state_path accepts str or pathlib.Path.
 
     A dry run is stable and makes no network calls or writes. A pending create
-    requires manual reconciliation: never delete the journal to force a retry.
+    requires explicit reconciliation: never delete the journal to force a retry.
     """
     parent_page_id = _id(parent_page_id)
     schema = load_schema()
@@ -299,22 +403,15 @@ def bootstrap(client: NotionClient, parent_page_id: str, state_path, apply: bool
         state = read_json(state_path) if state_path.exists() else {
             "kind": "notion_bootstrap", "schema_hash": plan["schema_hash"],
             "parent_page_id": parent_page_id, "databases": {}, "pending": None}
-        if any(state.get(key) != value for key, value in {
-            "kind": "notion_bootstrap", "schema_hash": plan["schema_hash"], "parent_page_id": parent_page_id}.items()):
-            raise BridgeError("STATE_MISMATCH", "Bootstrap state belongs to a different parent or schema.")
+        _bootstrap_state(state, parent_page_id)
         if state.get("pending"):
-            raise BridgeError("BOOTSTRAP_UNCERTAIN", "A previous database create is unconfirmed. Inspect Notion and reconcile the pending state manually; no create was retried.")
+            raise BridgeError("BOOTSTRAP_UNCERTAIN", "A previous database create is unconfirmed. Use notion-reconcile with its explicit database ID; no create was retried.")
         known = {}
         for spec in schema["databases"]:
             key = spec["key"]
             if key in state["databases"]:
                 record = state["databases"][key]
-                database = client.call("GET", f"/v1/databases/{_id(record['database_id'])}", read=True)
-                if (database.get("object") != "database" or database.get("archived", False)
-                        or database.get("in_trash", False)
-                        or _id(database.get("parent", {}).get("page_id")) != parent_page_id
-                        or record["data_source_id"] not in [source.get("id") for source in database.get("data_sources", [])]):
-                    raise BridgeError("STATE_MISMATCH", "A persisted database was moved, archived, or changed; no external schema was overwritten.")
+                _verify_database(client, spec, record, parent_page_id, known)
                 known[key] = _id(record["data_source_id"])
                 continue
             payload = _database_payload(spec, parent_page_id, known)
@@ -323,32 +420,52 @@ def bootstrap(client: NotionClient, parent_page_id: str, state_path, apply: bool
             result = client.call("POST", "/v1/databases", payload)
             sources = result.get("data_sources", [])
             if result.get("object") != "database" or len(sources) != 1:
-                raise BridgeError("WRITE_UNCERTAIN", "Database creation returned an unexpected response. Reconcile the pending journal manually.")
+                raise BridgeError("WRITE_UNCERTAIN", "Database creation returned an unexpected response. Use notion-reconcile with the created database ID.")
             record = {"database_id": _id(result.get("id")), "data_source_id": _id(sources[0].get("id"))}
+            _verify_database(client, spec, record, parent_page_id, known)
             state["databases"][key] = record
             known[key] = record["data_source_id"]
             state["pending"] = None
             atomic_json(state_path, state)
+        state["schema_hash"] = plan["schema_hash"]
+        atomic_json(state_path, state)
         return {"action": "bootstrap", "status": "complete", "parent_page_id": parent_page_id,
                 "schema_hash": plan["schema_hash"], "databases": state["databases"]}
 
 
 def _update_payload(data_source_id, draft):
     required = ("external_id", "title", "markdown", "payload_hash")
-    if (not isinstance(draft, dict) or set(draft) != set(required)
+    optional = {"classification", "project_page_ids", "work_item_page_ids"}
+    if (not isinstance(draft, dict) or not set(required) <= set(draft) or set(draft) - set(required) - optional
             or any(not isinstance(draft.get(key), str) or not draft[key] for key in required)):
-        raise BridgeError("INVALID_DRAFT", "Update draft requires only nonempty external_id, title, markdown, and payload_hash strings.")
+        raise BridgeError("INVALID_DRAFT", "Update draft requires external_id, title, markdown, payload_hash, and only supported optional metadata.")
     if len(draft["external_id"]) > 200 or len(draft["title"]) > 2000 or len(draft["markdown"].encode("utf-8")) > 100_000:
         raise BridgeError("INVALID_DRAFT", "Update draft exceeds the bounded publishing size.")
-    expected = digest({key: draft[key] for key in required if key != "payload_hash"})
+    if "classification" in draft and draft["classification"] not in ("Public", "Internal", "Confidential", "Restricted"):
+        raise BridgeError("INVALID_DRAFT", "Update Classification must be a defined taxonomy classification.")
+    relations = {}
+    for key, name in (("project_page_ids", "Project"), ("work_item_page_ids", "Work Item")):
+        if key in draft:
+            values = draft[key]
+            if not isinstance(values, list) or len(values) > 25:
+                raise BridgeError("INVALID_DRAFT", "Update relations require at most 25 explicitly supplied page IDs.")
+            ids = [_id(value) for value in values]
+            if len(set(ids)) != len(ids):
+                raise BridgeError("INVALID_DRAFT", "Update relations cannot repeat a page ID.")
+            relations[name] = {"relation": [{"id": value} for value in ids]}
+    expected = digest({key: value for key, value in draft.items() if key != "payload_hash"})
     if draft["payload_hash"] != expected:
         raise BridgeError("DRAFT_CHANGED", "Draft content does not match its payload hash; prepare and review it again.")
-    return {"parent": {"type": "data_source_id", "data_source_id": data_source_id},
+    payload = {"parent": {"type": "data_source_id", "data_source_id": data_source_id},
             "properties": {"Name": {"title": _rich_text(draft["title"])},
                            "External ID": {"rich_text": _rich_text(draft["external_id"])},
                            "Payload Hash": {"rich_text": _rich_text(expected)},
                            "Status": {"select": {"name": "Published"}}},
             "markdown": draft["markdown"]}
+    payload["properties"].update(relations)
+    if "classification" in draft:
+        payload["properties"]["Classification"] = {"select": {"name": draft["classification"]}}
+    return payload
 
 
 def _find_update(client, data_source_id, external_id):
@@ -359,6 +476,61 @@ def _find_update(client, data_source_id, external_id):
     if result.get("has_more") is not False or len(result["results"]) > 1:
         raise BridgeError("DUPLICATE_UPDATE", "Multiple updates use this External ID; resolve the conflict manually.")
     return result["results"][0] if result["results"] else None
+
+
+def _verify_update_destination(client, data_source_id, payload):
+    source = client.call("GET", f"/v1/data_sources/{data_source_id}", read=True)
+    if (source.get("object") != "data_source" or _id(source.get("id")) != data_source_id
+            or source.get("archived", False) or source.get("in_trash", False)
+            or not isinstance(source.get("properties"), dict)):
+        raise BridgeError("SCHEMA_MISMATCH", "Update destination is not an active readable data source.")
+    for name, value in payload["properties"].items():
+        kind = next(iter(value))
+        prop = source["properties"].get(name)
+        if not isinstance(prop, dict) or prop.get("type") != kind or not isinstance(prop.get(kind), dict):
+            raise BridgeError("SCHEMA_MISMATCH", f"Update destination property {name} is missing or has the wrong type.")
+        if kind == "select":
+            options = prop[kind].get("options", [])
+            if not isinstance(options, list) or value[kind]["name"] not in [entry.get("name") for entry in options if isinstance(entry, dict)]:
+                raise BridgeError("SCHEMA_MISMATCH", f"Update destination property {name} lacks the requested selection.")
+        if kind == "relation":
+            target_source = _id(prop[kind].get("data_source_id"))
+            for relation in value[kind]:
+                page_id = relation["id"]
+                page = client.call("GET", f"/v1/pages/{page_id}", read=True)
+                if (page.get("object") != "page" or _id(page.get("id")) != page_id
+                        or page.get("archived", False) or page.get("in_trash", False)
+                        or _id(page.get("parent", {}).get("data_source_id")) != target_source):
+                    raise BridgeError("RELATION_MISMATCH", "An explicitly selected update relation page is not in the destination relation's data source.")
+
+
+def _verify_update_page(existing, data_source_id, draft, payload):
+    if (existing.get("object") != "page" or existing.get("archived", False)
+            or existing.get("in_trash", False)
+            or _id(existing.get("parent", {}).get("data_source_id")) != data_source_id):
+        raise BridgeError("UPDATE_CONFLICT", "The existing Notion update has the wrong parent or is not active.")
+    props = existing.get("properties", {})
+    if not isinstance(props, dict):
+        raise BridgeError("UPDATE_CONFLICT", "The existing Notion update properties are unreadable.")
+    for name, expected in payload["properties"].items():
+        kind = next(iter(expected))
+        prop = props.get(name)
+        if not isinstance(prop, dict):
+            raise BridgeError("UPDATE_CONFLICT", "The existing Notion update does not match this immutable payload.")
+        if kind in ("title", "rich_text"):
+            matches = _plain(prop.get(kind, [])) == _plain(expected[kind])
+        elif kind == "select":
+            matches = isinstance(prop.get(kind), dict) and prop[kind].get("name") == expected[kind]["name"]
+        else:
+            values = prop.get("relation")
+            matches = (isinstance(values, list) and not prop.get("has_more", False)
+                       and sorted(_id(value.get("id")) for value in values if isinstance(value, dict))
+                       == sorted(value["id"] for value in expected[kind])
+                       and all(isinstance(value, dict) for value in values))
+        if not matches:
+            raise BridgeError("UPDATE_CONFLICT", "The existing Notion update does not match this immutable payload.")
+    return {"status": "published", "payload_hash": draft["payload_hash"],
+            "page_id": _id(existing.get("id")), "url": existing.get("url", "")}
 
 
 def publish_update(client: NotionClient, data_source_id: str, draft: dict, state_path, apply: bool = False) -> dict:
@@ -382,24 +554,23 @@ def publish_update(client: NotionClient, data_source_id: str, draft: dict, state
             raise BridgeError("STATE_MISMATCH", "Publisher state is not a valid Notion outbox.")
         key = digest({"data_source_id": data_source_id, "external_id": draft["external_id"]})
         previous = state["entries"].get(key)
+        if previous is not None and (not isinstance(previous, dict) or previous.get("status") not in ("pending", "published")):
+            raise BridgeError("STATE_MISMATCH", "The outbox entry is malformed or has an unsupported status.")
         if previous and previous.get("payload_hash") != draft["payload_hash"]:
             raise BridgeError("UPDATE_CONFLICT", "This External ID already belongs to a different payload; use a new ID for a correction.")
+        if previous and previous.get("status") == "pending" and previous.get("payload") != payload:
+            raise BridgeError("STATE_MISMATCH", "The pending outbox payload differs from the reviewed draft.")
+        _verify_update_destination(client, data_source_id, payload)
         existing = _find_update(client, data_source_id, draft["external_id"])
         if existing:
-            props = existing.get("properties", {})
-            remote_hash = _plain(props.get("Payload Hash", {}).get("rich_text", []))
-            remote_id = _plain(props.get("External ID", {}).get("rich_text", []))
-            if (existing.get("object") != "page" or existing.get("archived", False)
-                    or existing.get("in_trash", False) or remote_hash != draft["payload_hash"]
-                    or remote_id != draft["external_id"]):
-                raise BridgeError("UPDATE_CONFLICT", "The existing Notion update does not match this immutable payload.")
-            record = {"status": "published", "payload_hash": draft["payload_hash"],
-                      "page_id": _id(existing.get("id")), "url": existing.get("url", "")}
+            record = _verify_update_page(existing, data_source_id, draft, payload)
+            if previous and previous.get("status") == "published" and _id(previous.get("page_id")) != record["page_id"]:
+                raise BridgeError("UPDATE_CONFLICT", "The previously published update has been replaced by a different page.")
             state["entries"][key] = record
             atomic_json(state_path, state)
             return {"action": "publish_update", **record, "status": "already_published"}
         if previous:
-            raise BridgeError("PUBLISH_UNCERTAIN", "A previous publish is not visible in Notion. Reconcile it manually; no write was retried.")
+            raise BridgeError("PUBLISH_UNCERTAIN", "A previous publish is not visible in Notion. Use update-reconcile with its explicit page ID; no write was retried.")
         state["entries"][key] = {"status": "pending", "payload_hash": draft["payload_hash"],
                                   "data_source_id": data_source_id, "external_id": draft["external_id"],
                                   "payload": payload}
@@ -407,8 +578,7 @@ def publish_update(client: NotionClient, data_source_id: str, draft: dict, state
         result = client.call("POST", "/v1/pages", payload)
         if result.get("object") != "page":
             raise BridgeError("WRITE_UNCERTAIN", "Publishing returned an unexpected response; reconcile the pending outbox.")
-        record = {"status": "published", "payload_hash": draft["payload_hash"],
-                  "page_id": _id(result.get("id")), "url": result.get("url", "")}
+        record = _verify_update_page(result, data_source_id, draft, payload)
         state["entries"][key] = record
         atomic_json(state_path, state)
         return {"action": "publish_update", **record}

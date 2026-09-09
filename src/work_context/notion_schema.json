@@ -4,7 +4,7 @@
   "root_page_name": "Work Context",
   "id_policy": "External ID is human-assigned and immutable. Notion page UUIDs are transport identifiers. IDs are unique within a database; never reuse retired IDs.",
   "status_policy": "Status uses select properties so exact options are portable. Business owners control requirement approval and business acceptance. The publisher only inserts Automation Updates.",
-  "views_policy": "Bootstrap creates five databases and their default Table views. The listed named views and page templates are exact manual setup specifications, not automatically installed objects.",
+  "views_policy": "Bootstrap creates five databases and default Table views. The separate notion-views command installs the exact named views through the 2026-03-11 Views API. Markdown page-template starting points can be exported; create native database templates in the Notion app.",
   "databases": [
     {
       "key": "projects",
@@ -117,7 +117,7 @@
         {"name": "Recent Updates", "layout": "table", "filter": null, "sorts": [{"property": "Published At", "direction": "descending"}]}
       ],
       "template_sections": ["Outcome", "Changes", "Verification evidence", "Limitations", "Next action", "Task and bundle IDs"],
-      "publisher_policy": "The initial publisher populates Name, External ID, Payload Hash, Status and the reviewed Markdown body. Set Classification and relations manually; these properties are not inferred. Publish a new external ID for a correction. Never update an existing published page automatically."
+      "publisher_policy": "The publisher populates Name, External ID, Payload Hash, Status, the reviewed Markdown body, and explicitly supplied Classification and Project/Work Item relations. Optional metadata participates in the reviewed payload hash; relation page membership is checked before publishing. Publish a new external ID for a correction. Never update an existing published page automatically."
     }
   ],
   "official_references": [
@@ -127,6 +127,10 @@
     "https://developers.notion.com/reference/query-a-data-source",
     "https://developers.notion.com/reference/status-codes",
     "https://developers.notion.com/guides/get-started/upgrade-guide-2026-03-11",
-    "https://github.com/makenotion/notion-sdk-js/blob/main/src/api-endpoints/common.ts"
+    "https://github.com/makenotion/notion-sdk-js/blob/main/src/api-endpoints/common.ts",
+    "https://developers.notion.com/reference/create-view",
+    "https://developers.notion.com/reference/list-views",
+    "https://developers.notion.com/reference/retrieve-a-view",
+    "https://developers.notion.com/guides/data-apis/creating-pages-from-templates"
   ]
 }

@@ -175,7 +175,7 @@ class BridgeWorkflowTests(unittest.TestCase):
         core.sync(self.c)
         result = core.draft_update(self.c, "Pilot update", "Prepared a mapping-validation task.")
         draft = read_json(Path(result["draft_path"]))
-        self.assertEqual(draft["payload_hash"], digest({k: draft[k] for k in ("external_id", "title", "markdown")}))
+        self.assertEqual(draft["payload_hash"], digest({k: v for k, v in draft.items() if k != "payload_hash"}))
         self.assertIn("Technical verification: NOT_RUN", draft["markdown"])
         self.assertTrue(Path(result["draft_path"]).is_relative_to(Path(self.c["state_dir"])))
 

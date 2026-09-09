@@ -259,7 +259,7 @@ State a measurable result and explicitly name the rule IDs it verifies.
         raise BridgeError("VAULT_IO_ERROR", f"Cannot create vault scaffold: {exc}") from exc
 
     return {
-        "vault_path": str(vault), "project_path": str(project),
-        "repo_path": str(repo), "task_path": str(task),
-        "config_path": str(project / "context" / "config.json"),
+        "vault_path": str(vault), "project_path": str(project.resolve()),
+        "repo_path": str(repo.resolve()), "task_path": str(task.resolve()),
+        "config_path": str((project / "context" / "config.json").resolve()),
     }

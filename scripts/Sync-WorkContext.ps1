@@ -6,7 +6,10 @@ param(
     [string] $ConfigPath,
 
     [ValidateNotNullOrEmpty()]
-    [string] $Python = 'python'
+    [string] $Python = 'python',
+
+    [ValidatePattern('^TASK-[0-9]{3,}$')]
+    [string] $Task = 'TASK-001'
 )
 
 Set-StrictMode -Version Latest
@@ -28,7 +31,7 @@ try {
         throw "Python was not found. Use -Python with the path to an approved Python 3.11 or newer executable."
     }
 
-    $syncArguments = @($launcher, '--config', $resolvedConfigPath, 'sync')
+    $syncArguments = @($launcher, '--config', $resolvedConfigPath, 'sync', '--task', $Task)
     & $pythonCommand.Source @syncArguments
     $syncExitCode = $LASTEXITCODE
     exit $syncExitCode
